@@ -3,6 +3,8 @@
 # my nickname: softandiron
 # Moscow 2021
 
+import argparse
+import logging
 import time
 from decimal import Decimal
 
@@ -11,27 +13,6 @@ from pycbrf.toolbox import ExchangeRates
 
 import data_parser
 import excel_builder
-
-start_time = time.time()
-delay_time = 0.2
-tax_rate = 13  # percents
-print('START')
-
-market_rate_today = {}
-positions, operations, market_rate_today['USD'], market_rate_today['EUR'], currencies = data_parser.get_api_data()
-
-# data_parser.account_data: ['my_token'], ['my_timezone'], ['start_date'], ['now_date']
-rates_today_cb = ExchangeRates(data_parser.account_data['now_date'])
-
-
-def get_portfolio_cash_rub():
-    for cur in currencies.payload.currencies:
-        if cur.currency == 'RUB':
-            return cur.balance
-    return 0
-
-
-cash_rub = get_portfolio_cash_rub()
 
 
 class PortfolioPosition:
@@ -54,13 +35,28 @@ class PortfolioPosition:
         self.market_cost_rub_cb = market_cost_rub_cb
 
 
+class PortfolioOperation:
+    def __init__(self, op_type, op_date, op_currency, op_payment):
+        self.op_type = op_type
+        self.op_date = op_date
+        self.op_currency = op_currency
+        self.op_payment = op_payment
+
+
+def get_portfolio_cash_rub():
+    for cur in currencies.payload.currencies:
+        if cur.currency == 'RUB':
+            return cur.balance
+    return 0
+
+
 def creating_positions_objects():
-    print('creating position objects..')
+    logger.info('creating position objects..')
 
     number_positions = len(positions.payload.positions)
-    print(f'{number_positions} positions in portfolio')
+    logger.info(f'{number_positions} positions in portfolio')
     number_operations = len(operations.payload.operations)
-    print(f'{number_operations} operations in period')
+    logger.info(f'{number_operations} operations in period')
 
     my_positions = list()
     for this_pos in positions.payload.positions:
@@ -102,7 +98,7 @@ def creating_positions_objects():
                             # add bought items to the list:
                             item_list += [item]*ops.quantity_executed
                         else:
-                            print('ERROR: unknown currency in position: ' + this_pos.name)
+                            logger.info('ERROR: unknown currency in position: ' + this_pos.name)
                     elif ops.operation_type == 'Sell':
                         # remove sold items to the list:
                         number = ops.quantity_executed
@@ -128,9 +124,9 @@ def creating_positions_objects():
                                               market_price, percent_change, market_cost, market_cost_rub_cb,
                                               ave_buy_price_rub, sum_buy_rub, tax_base, exp_tax))
 
-        print(this_pos.name)
+        logger.info(this_pos.name)
 
-    print('..positions are ready')
+    logger.info('..positions are ready')
     return my_positions
 
 
@@ -163,18 +159,8 @@ def calculate_sum_exp_tax():
     return sum(pos.exp_tax for pos in my_positions)
 
 
-# PART 2
-
-class PortfolioOperation:
-    def __init__(self, op_type, op_date, op_currency, op_payment):
-        self.op_type = op_type
-        self.op_date = op_date
-        self.op_currency = op_currency
-        self.op_payment = op_payment
-
-
 def create_operations_objects():
-    print('creating operations objects..')
+    logger.info('creating operations objects..')
     my_operations = list()
     for this_op in operations.payload.operations:
         my_operations.append(PortfolioOperation(op_type=this_op.operation_type,
@@ -182,7 +168,7 @@ def create_operations_objects():
                                                 op_currency=this_op.currency,
                                                 op_payment=this_op.payment))
 
-    print('..operations are ready')
+    logger.info('..operations are ready')
     return my_operations
 
 
@@ -197,82 +183,102 @@ def calculate_operations_sums_rub(current_op_type):
                 op_list.append(op.op_payment * rate[op.op_currency].value)
                 time.sleep(delay_time)  # to prevent TimeOut error
             else:
-                print('error: unknown currency!')
+                logger.info('error: unknown currency!')
 
     return sum(op_list)
 
 
-my_positions = creating_positions_objects()
-average_percent = get_average_percent()
-portfolio_cost_rub_market = get_portfolio_cost_rub_market()
-sum_portfolio_value_rub_cb = calculate_cb_value_rub_sum()
-sum_pos_ave_buy_rub = calculate_sum_pos_ave_buy_rub()
-sum_exp_tax = calculate_sum_exp_tax()
-
-my_operations = create_operations_objects()
-
-print('calculating PayIn operations sum in RUB..')
-sum_payin = calculate_operations_sums_rub('PayIn')
-
-print('calculating PayOut operations sum in RUB..')
-sum_payout = calculate_operations_sums_rub('PayOut')
-
-print('calculating Buy operations sum in RUB..')
-sum_buy = calculate_operations_sums_rub('Buy')
-
-print('calculating BuyCard operations sum in RUB..')
-sum_buycard = calculate_operations_sums_rub('BuyCard')
-
-print('calculating Sell operations sum in RUB..')
-sum_sell = calculate_operations_sums_rub('Sell')
-
-print('calculating Coupon operations sum in RUB..')
-sum_coupon = calculate_operations_sums_rub('Coupon')
-
-print('calculating Dividend operations sum in RUB..')
-sum_dividend = calculate_operations_sums_rub('Dividend')
-
-print('calculating Tax operations sum in RUB..')
-sum_tax = calculate_operations_sums_rub('Tax')
-
-print('calculating TaxCoupon operations sum in RUB..')
-sum_taxcoupon = calculate_operations_sums_rub('TaxCoupon')
-
-print('calculating TaxDividend operations sum in RUB..')
-sum_taxdividend = calculate_operations_sums_rub('TaxDividend')
-
-print('calculating BrokerCommission operations sum in RUB..')
-sum_brokercomission = calculate_operations_sums_rub('BrokerCommission')
-
-print('calculating ServiceCommission operations sum in RUB..')
-sum_servicecomission = calculate_operations_sums_rub('ServiceCommission')
-
-
-# PART 3
-print('prepare statistics')
-
-
 def calc_investing_period():
-    start_date = data_parser.account_data['start_date'].replace(tzinfo=None)
-    inv_period = relativedelta(data_parser.account_data['now_date'], start_date)
+    start_date = account_data['start_date'].replace(tzinfo=None)
+    inv_period = relativedelta(account_data['now_date'], start_date)
     return inv_period
 
 
-# investing period
-investing_period = calc_investing_period()
-investing_period_str = f'{investing_period.years}y {investing_period.months}m {investing_period.days}d'
-print('investing period: ' + investing_period_str)
+if __name__ == '__main__':
 
-# PayIn - PayOut
-payin_payout = sum_payin - abs(sum_payout)
+    logging.basicConfig(level=logging.WARNING, format='%(levelname)s: %(asctime)s - %(message)s', datefmt='%H:%M:%S')
+    logger = logging.getLogger()
+    p = argparse.ArgumentParser()
+    p.add_argument('-v', '--verbose', action='store_true')
+    args = p.parse_args()
+    if args.verbose:
+        logger.setLevel(logging.INFO)
 
+    start_time = time.time()
+    delay_time = 0.2
+    tax_rate = 13  # percents
+    logger.info('START')
 
-# EXCEL
-excel_builder.build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_today['USD'],
-                               market_rate_today['EUR'], average_percent, portfolio_cost_rub_market,
-                               sum_portfolio_value_rub_cb, sum_pos_ave_buy_rub, sum_exp_tax,
-                               sum_payin, sum_payout, sum_buy, sum_buycard, sum_sell, sum_coupon, sum_dividend,
-                               sum_tax, sum_taxcoupon, sum_taxdividend, sum_brokercomission, sum_servicecomission,
-                               investing_period_str, cash_rub, payin_payout)
+    market_rate_today = {}
+    positions, operations, market_rate_today['USD'], market_rate_today['EUR'], currencies = data_parser.get_api_data(logger)
 
-print(f'done in {time.time() - start_time:.2f} seconds')
+    account_data = data_parser.parse_text_file(logger)
+    rates_today_cb = ExchangeRates(account_data['now_date'])
+
+    cash_rub = get_portfolio_cash_rub()
+
+    my_positions = creating_positions_objects()
+    average_percent = get_average_percent()
+    portfolio_cost_rub_market = get_portfolio_cost_rub_market()
+    sum_portfolio_value_rub_cb = calculate_cb_value_rub_sum()
+    sum_pos_ave_buy_rub = calculate_sum_pos_ave_buy_rub()
+    sum_exp_tax = calculate_sum_exp_tax()
+
+    my_operations = create_operations_objects()
+
+    logger.info('calculating PayIn operations sum in RUB..')
+    sum_payin = calculate_operations_sums_rub('PayIn')
+
+    logger.info('calculating PayOut operations sum in RUB..')
+    sum_payout = calculate_operations_sums_rub('PayOut')
+
+    logger.info('calculating Buy operations sum in RUB..')
+    sum_buy = calculate_operations_sums_rub('Buy')
+
+    logger.info('calculating BuyCard operations sum in RUB..')
+    sum_buycard = calculate_operations_sums_rub('BuyCard')
+
+    logger.info('calculating Sell operations sum in RUB..')
+    sum_sell = calculate_operations_sums_rub('Sell')
+
+    logger.info('calculating Coupon operations sum in RUB..')
+    sum_coupon = calculate_operations_sums_rub('Coupon')
+
+    logger.info('calculating Dividend operations sum in RUB..')
+    sum_dividend = calculate_operations_sums_rub('Dividend')
+
+    logger.info('calculating Tax operations sum in RUB..')
+    sum_tax = calculate_operations_sums_rub('Tax')
+
+    logger.info('calculating TaxCoupon operations sum in RUB..')
+    sum_taxcoupon = calculate_operations_sums_rub('TaxCoupon')
+
+    logger.info('calculating TaxDividend operations sum in RUB..')
+    sum_taxdividend = calculate_operations_sums_rub('TaxDividend')
+
+    logger.info('calculating BrokerCommission operations sum in RUB..')
+    sum_brokercomission = calculate_operations_sums_rub('BrokerCommission')
+
+    logger.info('calculating ServiceCommission operations sum in RUB..')
+    sum_servicecomission = calculate_operations_sums_rub('ServiceCommission')
+
+    # PART 3
+    logger.info('prepare statistics')
+
+    # investing period
+    investing_period = calc_investing_period()
+    investing_period_str = f'{investing_period.years}y {investing_period.months}m {investing_period.days}d'
+    logger.info(f'investing period: {investing_period_str}\n')
+
+    # PayIn - PayOut
+    payin_payout = sum_payin - abs(sum_payout)
+
+    # EXCEL
+    excel_builder.build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_today['USD'],
+                                   market_rate_today['EUR'], average_percent, portfolio_cost_rub_market,
+                                   sum_portfolio_value_rub_cb, sum_pos_ave_buy_rub, sum_exp_tax,
+                                   sum_payin, sum_payout, sum_buy, sum_buycard, sum_sell, sum_coupon, sum_dividend,
+                                   sum_tax, sum_taxcoupon, sum_taxdividend, sum_brokercomission, sum_servicecomission,
+                                   investing_period_str, cash_rub, payin_payout, logger)
+
+    logger.info(f'done in {time.time() - start_time:.2f} seconds')

@@ -1,17 +1,16 @@
 # Creating and filling an Excel file
 
+import logging
 import xlsxwriter
 import data_parser
 
 
 def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_today_usd, market_rate_today_eur,
                      average_percent, portfolio_cost_rub_market, sum_portfolio_value_rub_cb, sum_pos_ave_buy_rub,
-                     sum_exp_tax,
-                     sum_payin, sum_payout, sum_buy, sum_buycard, sum_sell, sum_coupon, sum_dividend,
+                     sum_exp_tax, sum_payin, sum_payout, sum_buy, sum_buycard, sum_sell, sum_coupon, sum_dividend,
                      sum_tax, sum_taxcoupon, sum_taxdividend, sum_brokercomission, sum_servicecomission,
-                     investing_period_str, cash_rub, payin_payout):
-    print(' ')
-    print('creating excel file..')
+                     investing_period_str, cash_rub, payin_payout, logger=logging.getLogger()):
+    logger.info('creating excel file..')
     # creating file
     excel_file_name = 'tinkoffReport_' + data_parser.account_data['now_date'].strftime('%Y.%b.%d') + '.xlsx'
     workbook = xlsxwriter.Workbook(excel_file_name)
@@ -32,11 +31,11 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
     worksheet.write(0, 0, data_parser.account_data['now_date'].strftime('%Y %b %d  %H:%M'), cell_format_bold_center)
 
     def print_portfolio(s_row, s_col):
-        print('building portfolio table..')
+        logger.info('building portfolio table..')
         s_row += 3
 
         def set_columns_width():
-            print('setting column width..')
+            logger.info('setting column width..')
             worksheet.set_column(s_col, s_col, 28)
             worksheet.set_column(s_col + 1, s_col + 1, 14)
             worksheet.set_column(s_col + 2, s_col + 2, 12)
@@ -51,7 +50,7 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
             worksheet.set_column(s_col + 11, s_col + 16, 16)
 
         def build_header():
-            print('printing header..')
+            logger.info('printing header..')
             worksheet.write(s_row, s_col, 'name', cell_format_bold_center)
             worksheet.write(s_row, s_col + 1, 'ticker', cell_format_bold_center)
             worksheet.write(s_row, s_col + 2, 'balance', cell_format_bold_center)
@@ -70,21 +69,21 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
             worksheet.write(s_row, s_col + 15, 'expected tax', cell_format_bold_center)
 
         def build_cb_rate():
-            print('printing CB rates..')
+            logger.info('printing CB rates..')
             worksheet.write(s_row - 3, s_col + 11, 'Central Bank', cell_format_bold_center)
             worksheet.write(s_row - 3, s_col + 12, 'today rates:', cell_format_bold_center)
             worksheet.write(s_row - 2, s_col + 11, 'USD = ' + str(rates_today_cb['USD'].value), cell_format_center)
             worksheet.write(s_row - 2, s_col + 12, 'EUR = ' + str(rates_today_cb['EUR'].value), cell_format_center)
 
         def build_market_rates():
-            print('printing market rates..')
+            logger.info('printing market rates..')
             worksheet.write(s_row - 3, s_col + 8, 'Market', cell_format_bold_center)
             worksheet.write(s_row - 3, s_col + 9, 'today rates:', cell_format_bold_center)
             worksheet.write(s_row - 2, s_col + 8, 'USD = ' + str(market_rate_today_usd), cell_format_center)
             worksheet.write(s_row - 2, s_col + 9, 'EUR = ' + str(market_rate_today_eur), cell_format_center)
 
         def print_content():
-            print('content printing..')
+            logger.info('content printing..')
             row = s_row + 1
             col = s_col
             for this_pos in my_positions:
@@ -220,7 +219,7 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
         return last_row
 
     def print_operations(s_row, s_col):
-        print('building operations table..')
+        logger.info('building operations table..')
 
         def print_operations_by_type(ops_type, start_row, start_col):
             # set column width
@@ -255,57 +254,57 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
             return finish_row
 
         # PAY IN operations
-        print('building Pay In operations list..')
+        logger.info('building Pay In operations list..')
         finish_row_payin = print_operations_by_type('PayIn', s_row, s_col)
         worksheet.write(finish_row_payin, s_col + 1, sum_payin, cell_format_rub)
 
         # PAY OUT operations
-        print('building Pay Out operations list..')
+        logger.info('building Pay Out operations list..')
         finish_row_payout = print_operations_by_type('PayOut', s_row, s_col + 3)
         worksheet.write(finish_row_payout, s_col + 4, sum_payout, cell_format_rub)
 
         # BUY operations
-        print('building Buy operations list..')
+        logger.info('building Buy operations list..')
         last_row_buy = print_operations_by_type('Buy', s_row, s_col + 6)
         worksheet.write(last_row_buy, s_col + 7, sum_buy, cell_format_rub)
         # BUY CARD operations
-        print('building Buy Card operations list..')
+        logger.info('building Buy Card operations list..')
         last_row_buycard = print_operations_by_type('BuyCard', last_row_buy + 3, s_col + 6)
         worksheet.write(last_row_buycard, s_col + 7, sum_buycard, cell_format_rub)
 
         # SELL operations
-        print('building Sell operations list..')
+        logger.info('building Sell operations list..')
         last_row_sell = print_operations_by_type('Sell', s_row, s_col + 9)
         worksheet.write(last_row_sell, s_col + 10, sum_sell, cell_format_rub)
 
         # Coupon operations
-        print('building Coupon operations list..')
+        logger.info('building Coupon operations list..')
         last_row_coupon = print_operations_by_type('Coupon', s_row, s_col + 12)
         worksheet.write(last_row_coupon, s_col + 13, sum_coupon, cell_format_rub)
 
         # Dividend operations
-        print('building Dividend operations list..')
+        logger.info('building Dividend operations list..')
         last_row_dividend = print_operations_by_type('Dividend', s_row, s_col + 15)
         worksheet.write(last_row_dividend, s_col + 16, sum_dividend, cell_format_rub)
 
         # Tax operations
-        print('building Tax operations list..')
+        logger.info('building Tax operations list..')
         last_row_tax = print_operations_by_type('Tax', s_row, s_col + 18)
         worksheet.write(last_row_tax, s_col + 19, sum_tax, cell_format_rub)
         # Tax Coupon operations
-        print('building Tax Coupon operations list..')
+        logger.info('building Tax Coupon operations list..')
         last_row_tax_coupon = print_operations_by_type('TaxCoupon', last_row_tax + 3, s_col + 18)
         worksheet.write(last_row_tax_coupon, s_col + 19, sum_taxcoupon, cell_format_rub)
         # Tax Dividend operations
-        print('building Tax Dividend operations list..')
+        logger.info('building Tax Dividend operations list..')
         last_row_tax_dividend = print_operations_by_type('TaxDividend', last_row_tax_coupon + 3, s_col + 18)
         worksheet.write(last_row_tax_dividend, s_col + 19, sum_taxdividend, cell_format_rub)
 
         # Commission
-        print('building Broker Commission operations list..')
+        logger.info('building Broker Commission operations list..')
         last_row_broker_commission = print_operations_by_type('BrokerCommission', s_row, s_col + 21)
         worksheet.write(last_row_broker_commission, s_col + 22, sum_brokercomission, cell_format_rub)
-        print('building Service Commission operations list..')
+        logger.info('building Service Commission operations list..')
         last_row_broker_serv_commission = print_operations_by_type('ServiceCommission', last_row_broker_commission + 3,
                                                                                          s_col + 21)
         worksheet.write(last_row_broker_serv_commission, s_col + 22, sum_servicecomission, cell_format_rub)
@@ -336,7 +335,5 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
     print_statistics(last_row_pos + 3, 1)
 
     # finish Excel
-    print(' ')
-    print('Excel file composed! With name:')
-    print(excel_file_name)
+    logger.info('Excel file composed! With name: '+excel_file_name)
     workbook.close()
