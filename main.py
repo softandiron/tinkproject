@@ -130,7 +130,7 @@ def creating_positions_objects():
             ave_buy_price_rub = 0
             
             if len(item_list) != 0:
-                sum(item_list) / len(item_list)
+                ave_buy_price_rub = sum(item_list) / len(item_list)
 
             return abs(ave_buy_price_rub)
 
