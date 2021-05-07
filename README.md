@@ -15,7 +15,11 @@ Hello! This is my first project, please, don't judge me. This project was develo
 
 Также, для работы программы на вашем компьютере должен быть установлен Python 3.9.1
 
-Запускается программа файликом main.py
+Запускается программа файликом main.py или через `docker`:  
+```
+docker build -t tinkproject .
+docker run --rm -it -v $(pwd):/app tinkproject
+```
 
 Программа может формировать отчёт достаточно долго, в зависимости от объёма портфеля и количества совершённых операций.
 
