@@ -31,7 +31,10 @@ def get_api_data(logger=logging.getLogger()):
     course_eur = client.get_market_orderbook(figi='BBG0013HJJ31', depth=20)
     currencies = client.get_portfolio_currencies()
     logger.info("portfolio received")
-    return positions, operations, course_usd.payload.last_price, course_eur.payload.last_price, currencies
+    market_rate_today = {'USD': course_usd.payload.last_price,
+                         'EUR': course_eur.payload.last_price,
+                         'RUB': 1}
+    return positions, operations, market_rate_today, currencies
 
 
 account_data = parse_text_file()

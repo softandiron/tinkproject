@@ -3,9 +3,10 @@
 # my nickname: softandiron
 # Moscow 2021
 
-import argparse
 import logging
+import sys
 import time
+from dataclasses import dataclass
 from decimal import Decimal
 
 from dateutil.relativedelta import relativedelta
@@ -15,32 +16,31 @@ import data_parser
 import excel_builder
 
 
+@dataclass
 class PortfolioPosition:
-    def __init__(self, figi, name, ticker, balance, currency, ave_price, exp_yield, market_price, percent_change,
-                 market_cost, market_cost_rub_cb, ave_buy_price_rub, sum_buy_rub, tax_base, exp_tax):
-        self.figi = figi
-        self.name = name
-        self.ticker = ticker
-        self.balance = balance
-        self.exp_tax = exp_tax
-        self.currency = currency
-        self.tax_base = tax_base
-        self.ave_price = ave_price
-        self.exp_yield = exp_yield
-        self.sum_buy_rub = sum_buy_rub
-        self.market_cost = market_cost
-        self.market_price = market_price
-        self.percent_change = percent_change
-        self.ave_buy_price_rub = ave_buy_price_rub
-        self.market_cost_rub_cb = market_cost_rub_cb
+    figi: str
+    name: str
+    ticker: str
+    balance: Decimal
+    currency: Decimal
+    ave_price: Decimal
+    exp_yield: Decimal
+    market_price: Decimal
+    percent_change: Decimal
+    market_cost: Decimal
+    market_cost_rub_cb: Decimal
+    ave_buy_price_rub: Decimal
+    sum_buy_rub: Decimal
+    tax_base: Decimal
+    exp_tax: Decimal
 
 
+@dataclass
 class PortfolioOperation:
-    def __init__(self, op_type, op_date, op_currency, op_payment):
-        self.op_type = op_type
-        self.op_date = op_date
-        self.op_currency = op_currency
-        self.op_payment = op_payment
+    op_type: str
+    op_date: Decimal
+    op_currency: Decimal
+    op_payment: Decimal
 
 
 def get_portfolio_cash_rub():
@@ -48,6 +48,40 @@ def get_portfolio_cash_rub():
         if cur.currency == 'RUB':
             return cur.balance
     return 0
+
+
+# tax calculation
+def calculate_ave_buy_price_rub(this_pos):
+    item_list = []
+    # for this position's figi - add units into the list from operations
+    for ops in reversed(operations.payload.operations):
+        if ops.figi == this_pos.figi and ops.payment != 0:
+            if ops.operation_type == 'Buy':
+                if ops.currency == 'RUB':
+                    # price for 1 item
+                    item = ops.payment / ops.quantity_executed
+                    # add bought items to the list:
+                    item_list += [item]*ops.quantity_executed
+                elif ops.currency in ['USD', 'EUR']:
+                    rate_for_date = ExchangeRates(ops.date)
+                    # price for 1 item
+                    item = (ops.payment / ops.quantity_executed) * rate_for_date[ops.currency].value
+                    # add bought items to the list:
+                    item_list += [item]*ops.quantity_executed
+                else:
+                    logger.warning('unknown currency in position: ' + this_pos.name)
+            elif ops.operation_type == 'Sell':
+                # remove sold items from the list:
+                number = ops.quantity_executed
+                del item_list[:number]
+            time.sleep(delay_time)  # to prevent TimeOut error
+
+    # calculate average buying price in Rub
+    ave_buy_price_rub = 0
+    if len(item_list) != 0:
+        ave_buy_price_rub = sum(item_list) / len(item_list)
+
+    return abs(ave_buy_price_rub)
 
 
 def creating_positions_objects():
@@ -79,40 +113,7 @@ def creating_positions_objects():
         else:
             market_cost_rub_cb = 'unknown currency'
 
-        # for further tax calculation
-        def calculate_ave_buy_price_rub():
-            item_list = []
-            # for this position's figi - add units into the list from operations
-            for ops in reversed(operations.payload.operations):
-                if ops.figi == this_pos.figi and ops.payment != 0:
-                    if ops.operation_type == 'Buy':
-                        if ops.currency == 'RUB':
-                            # price for 1 item
-                            item = ops.payment / ops.quantity_executed
-                            # add bought items to the list:
-                            item_list += [item]*ops.quantity_executed
-                        elif ops.currency in ['USD', 'EUR']:
-                            rate_for_date = ExchangeRates(ops.date)
-                            # price for 1 item
-                            item = (ops.payment / ops.quantity_executed) * rate_for_date[ops.currency].value
-                            # add bought items to the list:
-                            item_list += [item]*ops.quantity_executed
-                        else:
-                            logger.info('ERROR: unknown currency in position: ' + this_pos.name)
-                    elif ops.operation_type == 'Sell':
-                        # remove sold items to the list:
-                        number = ops.quantity_executed
-                        del item_list[:number]
-                    time.sleep(delay_time)  # to prevent TimeOut error
-
-            # calculate average buying price in Rub
-            ave_buy_price_rub = 0
-            if len(item_list) != 0:
-                ave_buy_price_rub = sum(item_list) / len(item_list)
-
-            return abs(ave_buy_price_rub)
-
-        ave_buy_price_rub = calculate_ave_buy_price_rub()
+        ave_buy_price_rub = calculate_ave_buy_price_rub(this_pos)
         sum_buy_rub = ave_buy_price_rub * this_pos.balance
 
         tax_base = max(0, market_cost_rub_cb - sum_buy_rub)
@@ -120,7 +121,8 @@ def creating_positions_objects():
 
         my_positions.append(PortfolioPosition(this_pos.figi, this_pos.name, this_pos.ticker, this_pos.balance,
                                               this_pos.average_position_price.currency,
-                                              this_pos.average_position_price.value, this_pos.expected_yield.value,
+                                              this_pos.average_position_price.value,
+                                              this_pos.expected_yield.value,
                                               market_price, percent_change, market_cost, market_cost_rub_cb,
                                               ave_buy_price_rub, sum_buy_rub, tax_base, exp_tax))
 
@@ -138,12 +140,10 @@ def get_average_percent():
 def get_portfolio_cost_rub_market():
     costs_list = []
     for this_pos in my_positions:
-        if this_pos.currency == 'RUB':
-            costs_list.append(this_pos.market_cost)
-        elif this_pos.currency in ['USD', 'EUR']:
+        if this_pos.currency in ['RUB', 'USD', 'EUR']:
             costs_list.append(this_pos.market_cost * market_rate_today[this_pos.currency])
         else:
-            return 'error'
+            logger.warning(f'Unsupported currency: {this_pos.currency}')
     return sum(costs_list) + cash_rub
 
 
@@ -163,10 +163,10 @@ def create_operations_objects():
     logger.info('creating operations objects..')
     my_operations = list()
     for this_op in operations.payload.operations:
-        my_operations.append(PortfolioOperation(op_type=this_op.operation_type,
-                                                op_date=this_op.date,
-                                                op_currency=this_op.currency,
-                                                op_payment=this_op.payment))
+        my_operations.append(PortfolioOperation(this_op.operation_type,
+                                                this_op.date,
+                                                this_op.currency,
+                                                this_op.payment))
 
     logger.info('..operations are ready')
     return my_operations
@@ -183,8 +183,7 @@ def calculate_operations_sums_rub(current_op_type):
                 op_list.append(op.op_payment * rate[op.op_currency].value)
                 time.sleep(delay_time)  # to prevent TimeOut error
             else:
-                logger.info('error: unknown currency!')
-
+                logger.warning(f'Unsupported currency: {op.op_currency}')
     return sum(op_list)
 
 
@@ -198,72 +197,36 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.WARNING, format='%(levelname)s: %(asctime)s - %(message)s', datefmt='%H:%M:%S')
     logger = logging.getLogger()
-    p = argparse.ArgumentParser()
-    p.add_argument('-v', '--verbose', action='store_true')
-    args = p.parse_args()
-    if args.verbose:
+    if sys.argv[-1] in ['-v', '-verbose']:
         logger.setLevel(logging.INFO)
 
     start_time = time.time()
     delay_time = 0.2
     tax_rate = 13  # percents
-    logger.info('START')
+    logger.info('Start')
 
-    market_rate_today = {}
-    positions, operations, market_rate_today['USD'], market_rate_today['EUR'], currencies = data_parser.get_api_data(logger)
+    positions, operations, market_rate_today, currencies = data_parser.get_api_data(logger)
 
     account_data = data_parser.parse_text_file(logger)
     rates_today_cb = ExchangeRates(account_data['now_date'])
 
     cash_rub = get_portfolio_cash_rub()
-
     my_positions = creating_positions_objects()
     average_percent = get_average_percent()
     portfolio_cost_rub_market = get_portfolio_cost_rub_market()
-    sum_portfolio_value_rub_cb = calculate_cb_value_rub_sum()
-    sum_pos_ave_buy_rub = calculate_sum_pos_ave_buy_rub()
-    sum_exp_tax = calculate_sum_exp_tax()
+
+    sum_profile = {}
+    sum_profile['portfolio_value_rub_cb'] = calculate_cb_value_rub_sum()
+    sum_profile['pos_ave_buy_rub'] = calculate_sum_pos_ave_buy_rub()
+    sum_profile['exp_tax'] = calculate_sum_exp_tax()
 
     my_operations = create_operations_objects()
 
-    logger.info('calculating PayIn operations sum in RUB..')
-    sum_payin = calculate_operations_sums_rub('PayIn')
+    for operation in ['PayIn', 'PayOut', 'Buy', 'BuyCard', 'Sell', 'Coupon', 'Dividend', 'Tax', 'TaxCoupon', 'TaxDividend', 'BrokerCommission', 'ServiceCommission']:
+        logger.info(f'calculating {operation} operations sum in RUB..')
+        sum_profile[operation.lower()] = calculate_operations_sums_rub(operation)
 
-    logger.info('calculating PayOut operations sum in RUB..')
-    sum_payout = calculate_operations_sums_rub('PayOut')
-
-    logger.info('calculating Buy operations sum in RUB..')
-    sum_buy = calculate_operations_sums_rub('Buy')
-
-    logger.info('calculating BuyCard operations sum in RUB..')
-    sum_buycard = calculate_operations_sums_rub('BuyCard')
-
-    logger.info('calculating Sell operations sum in RUB..')
-    sum_sell = calculate_operations_sums_rub('Sell')
-
-    logger.info('calculating Coupon operations sum in RUB..')
-    sum_coupon = calculate_operations_sums_rub('Coupon')
-
-    logger.info('calculating Dividend operations sum in RUB..')
-    sum_dividend = calculate_operations_sums_rub('Dividend')
-
-    logger.info('calculating Tax operations sum in RUB..')
-    sum_tax = calculate_operations_sums_rub('Tax')
-
-    logger.info('calculating TaxCoupon operations sum in RUB..')
-    sum_taxcoupon = calculate_operations_sums_rub('TaxCoupon')
-
-    logger.info('calculating TaxDividend operations sum in RUB..')
-    sum_taxdividend = calculate_operations_sums_rub('TaxDividend')
-
-    logger.info('calculating BrokerCommission operations sum in RUB..')
-    sum_brokercomission = calculate_operations_sums_rub('BrokerCommission')
-
-    logger.info('calculating ServiceCommission operations sum in RUB..')
-    sum_servicecomission = calculate_operations_sums_rub('ServiceCommission')
-
-    # PART 3
-    logger.info('prepare statistics')
+    logger.info('preparing statistics')
 
     # investing period
     investing_period = calc_investing_period()
@@ -271,14 +234,11 @@ if __name__ == '__main__':
     logger.info(f'investing period: {investing_period_str}\n')
 
     # PayIn - PayOut
-    payin_payout = sum_payin - abs(sum_payout)
+    payin_payout = sum_profile['payin'] - abs(sum_profile['payout'])
 
     # EXCEL
-    excel_builder.build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_today['USD'],
-                                   market_rate_today['EUR'], average_percent, portfolio_cost_rub_market,
-                                   sum_portfolio_value_rub_cb, sum_pos_ave_buy_rub, sum_exp_tax,
-                                   sum_payin, sum_payout, sum_buy, sum_buycard, sum_sell, sum_coupon, sum_dividend,
-                                   sum_tax, sum_taxcoupon, sum_taxdividend, sum_brokercomission, sum_servicecomission,
+    excel_builder.build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_today,
+                                   average_percent, portfolio_cost_rub_market, sum_profile,
                                    investing_period_str, cash_rub, payin_payout, logger)
 
     logger.info(f'done in {time.time() - start_time:.2f} seconds')
