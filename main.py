@@ -76,6 +76,22 @@ def calculate_ave_buy_price_rub(this_pos):
                 del item_list[:number]
             time.sleep(delay_time)  # to prevent TimeOut error
 
+        # solving problem with TCS Group stocks:
+        if this_pos.figi == 'BBG00QPYJ5H0':
+            if ops.figi == 'BBG005DXJS36' and ops.payment != 0:
+                if ops.operation_type == 'Buy':
+                    if ops.currency == 'RUB':
+                        # price for 1 item
+                        item = ops.payment / ops.quantity_executed
+                        # add bought items to the list:
+                        item_list += [item] * ops.quantity_executed
+                    else:
+                        logger.warning('unknown currency in position: ' + this_pos.name)
+                elif ops.operation_type == 'Sell':
+                    # remove sold items from the list:
+                    number = ops.quantity_executed
+                    del item_list[:number]     
+            
     # calculate average buying price in Rub
     ave_buy_price_rub = 0
     if len(item_list) != 0:
