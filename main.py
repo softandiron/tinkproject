@@ -24,6 +24,7 @@ class PortfolioPosition:
     balance: Decimal
     currency: Decimal
     ave_price: Decimal
+    sum_buy: Decimal
     exp_yield: Decimal
     market_price: Decimal
     percent_change: Decimal
@@ -129,6 +130,10 @@ def creating_positions_objects():
         else:
             market_cost_rub_cb = 'unknown currency'
 
+        # sum buy (purchase amount)
+
+        sum_buy = this_pos.average_position_price.value * this_pos.balance
+
         ave_buy_price_rub = calculate_ave_buy_price_rub(this_pos)
         sum_buy_rub = ave_buy_price_rub * this_pos.balance
 
@@ -137,7 +142,7 @@ def creating_positions_objects():
 
         my_positions.append(PortfolioPosition(this_pos.figi, this_pos.name, this_pos.ticker, this_pos.balance,
                                               this_pos.average_position_price.currency,
-                                              this_pos.average_position_price.value,
+                                              this_pos.average_position_price.value, sum_buy,
                                               this_pos.expected_yield.value,
                                               market_price, percent_change, market_cost, market_cost_rub_cb,
                                               ave_buy_price_rub, sum_buy_rub, tax_base, exp_tax))
@@ -149,8 +154,21 @@ def creating_positions_objects():
 
 
 def get_average_percent():
-    percent_list = [this_pos.percent_change for this_pos in my_positions]
-    return sum(percent_list) / len(percent_list)
+    sum_buy_list = []
+    for this_pos in my_positions:
+        if this_pos.currency in ['RUB', 'USD', 'EUR']:
+            sum_buy_list.append(this_pos.sum_buy * market_rate_today[this_pos.currency])
+        else:
+            logger.warning(f'Unsupported currency: {this_pos.currency}')
+    total_sum_buy = sum(sum_buy_list)
+    yield_list = []
+    for this_pos in my_positions:
+        if this_pos.currency in ['RUB', 'USD', 'EUR']:
+            yield_list.append(this_pos.exp_yield * market_rate_today[this_pos.currency])
+        else:
+            logger.warning(f'Unsupported currency: {this_pos.currency}')
+    total_yield = sum(yield_list)
+    return (total_yield/total_sum_buy)*100
 
 
 def get_portfolio_cost_rub_market():
