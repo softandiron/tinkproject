@@ -43,38 +43,42 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
 
         def set_columns_width():
             logger.info('setting column width..')
-            worksheet_port.set_column(s_col, s_col, 28)
-            worksheet_port.set_column(s_col + 1, s_col + 1, 14)
-            worksheet_port.set_column(s_col + 2, s_col + 2, 12)
-            worksheet_port.set_column(s_col + 3, s_col + 3, 8)
-            worksheet_port.set_column(s_col + 4, s_col + 4, 12)
-            worksheet_port.set_column(s_col + 5, s_col + 5, 12)
-            worksheet_port.set_column(s_col + 6, s_col + 6, 12)
-            worksheet_port.set_column(s_col + 7, s_col + 7, 10)
-            worksheet_port.set_column(s_col + 8, s_col + 8, 14)
-            worksheet_port.set_column(s_col + 9, s_col + 9, 16)
+            worksheet_port.set_column(s_col, s_col, 28)  # name
+            worksheet_port.set_column(s_col + 1, s_col + 1, 14)  # ticker
+            worksheet_port.set_column(s_col + 2, s_col + 2, 12)  # balance
+            worksheet_port.set_column(s_col + 3, s_col + 3, 8)  # currency
+            worksheet_port.set_column(s_col + 4, s_col + 4, 12)  # ave.price
+            worksheet_port.set_column(s_col + 5, s_col + 5, 14)  # sum.buy
+            worksheet_port.set_column(s_col + 6, s_col + 6, 14)  # exp.yield
+            worksheet_port.set_column(s_col + 7, s_col + 7, 12)  # market price
+            worksheet_port.set_column(s_col + 8, s_col + 8, 10)  # % change
+            worksheet_port.set_column(s_col + 9, s_col + 9, 14)  # market value
+            worksheet_port.set_column(s_col + 10, s_col + 10, 16)  # market value RUB
 
-            worksheet_port.set_column(s_col + 11, s_col + 16, 16)
+            worksheet_port.set_column(s_col + 12, s_col + 16, 16)  # CB value RUB
 
         def build_header():
             logger.info('printing header..')
 
-            for shift, name in enumerate(['name', 'ticker', 'balance', 'currency', 'ave.price', 'exp.yield', 'market price', '% change', 'market value', 'market value RUB', '', 'CB value RUB', 'ave.buy in RUB', 'sum.buy in RUB', 'tax base', 'expected tax']):
+            for shift, name in enumerate(['name', 'ticker', 'balance', 'currency', 'ave.price', 'sum.buy', 'exp.yield',
+                                          'market price', '% change', 'market value', 'market value RUB', '',
+                                          'CB value RUB', 'ave.buy in RUB', 'sum.buy in RUB', 'tax base',
+                                          'expected tax']):
                 worksheet_port.write(s_row, s_col+shift, name, cell_format['bold_center'])
 
         def build_cb_rate():
             logger.info('printing CB rates..')
-            worksheet_port.write(s_row - 3, s_col + 11, 'Central Bank', cell_format['bold_center'])
-            worksheet_port.write(s_row - 3, s_col + 12, 'today rates:', cell_format['bold_center'])
-            worksheet_port.write(s_row - 2, s_col + 11, f"USD = {rates_today_cb['USD'].value}", cell_format['center'])
-            worksheet_port.write(s_row - 2, s_col + 12, f"EUR = {rates_today_cb['EUR'].value}", cell_format['center'])
+            worksheet_port.write(s_row - 3, s_col + 12, 'Central Bank', cell_format['bold_center'])
+            worksheet_port.write(s_row - 3, s_col + 13, 'today rates:', cell_format['bold_center'])
+            worksheet_port.write(s_row - 2, s_col + 12, f"USD = {rates_today_cb['USD'].value}", cell_format['center'])
+            worksheet_port.write(s_row - 2, s_col + 13, f"EUR = {rates_today_cb['EUR'].value}", cell_format['center'])
 
         def build_market_rates():
             logger.info('printing market rates..')
-            worksheet_port.write(s_row - 3, s_col + 8, 'Market', cell_format['bold_center'])
-            worksheet_port.write(s_row - 3, s_col + 9, 'today rates:', cell_format['bold_center'])
-            worksheet_port.write(s_row - 2, s_col + 8, f"USD = {market_rate_today['USD']}", cell_format['center'])
-            worksheet_port.write(s_row - 2, s_col + 9, f"EUR = {market_rate_today['EUR']}", cell_format['center'])
+            worksheet_port.write(s_row - 3, s_col + 9, 'Market', cell_format['bold_center'])
+            worksheet_port.write(s_row - 3, s_col + 10, 'today rates:', cell_format['bold_center'])
+            worksheet_port.write(s_row - 2, s_col + 9, f"USD = {market_rate_today['USD']}", cell_format['center'])
+            worksheet_port.write(s_row - 2, s_col + 10, f"EUR = {market_rate_today['EUR']}", cell_format['center'])
 
         def print_content():
             logger.info('content printing..')
@@ -88,48 +92,51 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
 
                 if this_pos.currency in ['RUB', 'USD', 'EUR']:
                     worksheet_port.write(row, col + 4, this_pos.ave_price, cell_format[this_pos.currency])
-                    worksheet_port.write(row, col + 5, this_pos.exp_yield, cell_format[this_pos.currency])
-                    worksheet_port.write(row, col + 6, this_pos.market_price, cell_format[this_pos.currency])
-                    worksheet_port.write(row, col + 8, this_pos.market_cost, cell_format[this_pos.currency])
-                    worksheet_port.write(row, col + 9, this_pos.market_cost * market_rate_today[this_pos.currency], cell_format['RUB'])
+                    worksheet_port.write(row, col + 5, this_pos.sum_buy, cell_format[this_pos.currency])
+                    worksheet_port.write(row, col + 6, this_pos.exp_yield, cell_format[this_pos.currency])
+                    worksheet_port.write(row, col + 7, this_pos.market_price, cell_format[this_pos.currency])
+                    worksheet_port.write(row, col + 9, this_pos.market_cost, cell_format[this_pos.currency])
+                    worksheet_port.write(row, col + 10, this_pos.market_cost * market_rate_today[this_pos.currency], cell_format['RUB'])
                 else:
                     worksheet_port.write(row, col + 4, 'unknown currency', cell_format['right'])
                     worksheet_port.write(row, col + 5, 'unknown currency', cell_format['right'])
                     worksheet_port.write(row, col + 6, 'unknown currency', cell_format['right'])
                     worksheet_port.write(row, col + 8, 'unknown currency', cell_format['right'])
                     worksheet_port.write(row, col + 9, 'unknown currency', cell_format['right'])
+                    worksheet_port.write(row, col + 10, 'unknown currency', cell_format['right'])
 
                 # % change
-                cell_format['perc'] = workbook.add_format({'num_format': '0.00  ', 'font_color': get_color(this_pos.percent_change)})
-                worksheet_port.write(row, col + 7, this_pos.percent_change, cell_format['perc'])
+                cell_format['perc'] = workbook.add_format({'num_format': '0.00  ',
+                                                           'font_color': get_color(this_pos.percent_change)})
+                worksheet_port.write(row, col + 8, this_pos.percent_change, cell_format['perc'])
 
-                worksheet_port.write(row, col + 11, this_pos.market_cost_rub_cb, cell_format['RUB'])
-                worksheet_port.write(row, col + 12, this_pos.ave_buy_price_rub, cell_format['RUB'])
-                worksheet_port.write(row, col + 13, this_pos.sum_buy_rub, cell_format['RUB'])
-                worksheet_port.write(row, col + 14, this_pos.tax_base, cell_format['RUB'])
-                worksheet_port.write(row, col + 15, this_pos.exp_tax, cell_format['RUB'])
+                worksheet_port.write(row, col + 12, this_pos.market_cost_rub_cb, cell_format['RUB'])
+                worksheet_port.write(row, col + 13, this_pos.ave_buy_price_rub, cell_format['RUB'])
+                worksheet_port.write(row, col + 14, this_pos.sum_buy_rub, cell_format['RUB'])
+                worksheet_port.write(row, col + 15, this_pos.tax_base, cell_format['RUB'])
+                worksheet_port.write(row, col + 16, this_pos.exp_tax, cell_format['RUB'])
 
                 row += 1
 
             worksheet_port.write(row, col, 'Рубль деревянный кэшем', cell_format['left'])
-            for shift in [2, 9, 11]:
+            for shift in [2, 10, 12]:
                 worksheet_port.write(row, col+shift, cash_rub, cell_format['RUB'])
-            for shift in set(range(1, 16)) - {2, 9, 10, 11}:
+            for shift in set(range(1, 16)) - {2, 10, 11, 12}:
                 worksheet_port.write(row, col+shift, '-', cell_format['center'])
             row += 1
 
             # portfolio market cost in rub
-            worksheet_port.write(row + 1, col + 8, 'total value:', cell_format['bold_right'])
-            worksheet_port.write(row + 1, col + 9, portfolio_cost_rub_market, cell_format['RUB'])
+            worksheet_port.write(row + 1, col + 9, 'total value:', cell_format['bold_right'])
+            worksheet_port.write(row + 1, col + 10, portfolio_cost_rub_market, cell_format['RUB'])
             # average percent
-            worksheet_port.write(row + 1, col + 6, 'ave. %', cell_format['bold_right'])
+            worksheet_port.write(row + 1, col + 7, 'ave. %', cell_format['bold_right'])
 
             cell_format['perc'] = workbook.add_format({'num_format': '0.00  ', 'font_color': get_color(average_percent)})
-            worksheet_port.write(row + 1, col + 7, average_percent, cell_format['perc'])
+            worksheet_port.write(row + 1, col + 8, average_percent, cell_format['perc'])
 
-            worksheet_port.write(row + 1, col + 11, sum_profile['portfolio_value_rub_cb'], cell_format['RUB'])
-            worksheet_port.write(row + 1, col + 13, sum_profile['pos_ave_buy_rub'], cell_format['RUB'])
-            worksheet_port.write(row + 1, col + 15, sum_profile['exp_tax'], cell_format['RUB'])
+            worksheet_port.write(row + 1, col + 12, sum_profile['portfolio_value_rub_cb'], cell_format['RUB'])
+            worksheet_port.write(row + 1, col + 14, sum_profile['pos_ave_buy_rub'], cell_format['RUB'])
+            worksheet_port.write(row + 1, col + 16, sum_profile['exp_tax'], cell_format['RUB'])
 
             return row
 
