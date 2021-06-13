@@ -4,6 +4,8 @@ import logging
 import xlsxwriter
 import data_parser
 
+supported_currencies = ['RUB', 'USD', 'EUR']
+
 
 def get_color(num):
     if num > 0:
@@ -64,7 +66,7 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
                                           'market price', '% change', 'market value', 'market value RUB', '',
                                           'CB value RUB', 'ave.buy in RUB', 'sum.buy in RUB', 'tax base',
                                           'expected tax']):
-                worksheet_port.write(s_row, s_col+shift, name, cell_format['bold_center'])
+                worksheet_port.write(s_row, s_col + shift, name, cell_format['bold_center'])
 
         def build_cb_rate():
             logger.info('printing CB rates..')
@@ -90,7 +92,7 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
                 worksheet_port.write(row, col + 2, this_pos.balance, cell_format['left'])
                 worksheet_port.write(row, col + 3, this_pos.currency, cell_format['left'])
 
-                if this_pos.currency in ['RUB', 'USD', 'EUR']:
+                if this_pos.currency in supported_currencies:
                     worksheet_port.write(row, col + 4, this_pos.ave_price, cell_format[this_pos.currency])
                     worksheet_port.write(row, col + 5, this_pos.sum_buy, cell_format[this_pos.currency])
                     worksheet_port.write(row, col + 6, this_pos.exp_yield, cell_format[this_pos.currency])
@@ -170,7 +172,7 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
                     # operation's date
                     worksheet_ops.write(start_row, start_col, operation.op_date.strftime('%Y %b %d  %H:%M'), cell_format['right'])
                     # operation's value (payment in the operation's currency)
-                    if operation.op_currency in ['RUB', 'USD', 'EUR']:
+                    if operation.op_currency in supported_currencies:
                         worksheet_ops.write(start_row, start_col + 1, operation.op_payment, cell_format[operation.op_currency])
                     else:
                         worksheet_ops.write(start_row, start_col + 1, 'unknown currency', cell_format['right'])
