@@ -158,7 +158,7 @@ def creating_positions_objects():
 
 
 def get_average_percent():
-    sum_buy_list, yield_list = []
+    sum_buy_list, yield_list = [], []
     for this_pos in my_positions:
         if this_pos.currency in supported_currencies:
             sum_buy_list.append(this_pos.sum_buy * market_rate_today[this_pos.currency])
