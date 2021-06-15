@@ -17,7 +17,8 @@ import data_parser
 from excel_builder import build_excel_file, supported_currencies
 
 # creating ruble 1:1 exchange rate for cleaner iterating over currencies
-ruble = ExchangeRate(code='RUB', value=1, rate=1, name='Рубль', id='KOSTYL', num='KOSTYL', par='KOSTYL')
+ruble = ExchangeRate(code='RUB', value=Decimal(1), rate=Decimal(1), name='Рубль', id='KOSTYL', num='KOSTYL',
+                     par=Decimal(1))
 
 
 def get_exchange_rate(date):
@@ -117,32 +118,47 @@ def creating_positions_objects():
 
     my_positions = list()
     for this_pos in positions.payload.positions:
-        # market cost (total for each position)
-        market_cost = this_pos.expected_yield.value + (this_pos.average_position_price.value * this_pos.balance)
+        if this_pos.average_position_price.value > 0:
+            # market cost (total for each position)
+            market_cost = this_pos.expected_yield.value + (this_pos.average_position_price.value * this_pos.balance)
 
-        # current market prise for 1 item
-        market_price = market_cost / this_pos.balance
+            # current market prise for 1 item
+            market_price = market_cost / this_pos.balance
 
-        # % change
-        percent_change = ((market_price / this_pos.average_position_price.value) * 100) - 100
+            # % change
+            percent_change = ((market_price / this_pos.average_position_price.value) * 100) - 100
 
-        global market_cost_rub_cb
-        # market value rub CB
-        if this_pos.average_position_price.currency in supported_currencies:
-            market_cost_rub_cb = market_cost * rates_today_cb[this_pos.average_position_price.currency].value
-            time.sleep(delay_time)  # to prevent TimeOut error
-        else:
-            market_cost_rub_cb = 'unknown currency'
+            global market_cost_rub_cb
+            # market value rub CB
+            if this_pos.average_position_price.currency in supported_currencies:
+                market_cost_rub_cb = market_cost * rates_today_cb[this_pos.average_position_price.currency].value
+                time.sleep(delay_time)  # to prevent TimeOut error
+            else:
+                market_cost_rub_cb = 'unknown currency'
 
-        # sum buy (purchase amount)
+            # sum buy (purchase amount)
 
-        sum_buy = this_pos.average_position_price.value * this_pos.balance
+            sum_buy = this_pos.average_position_price.value * this_pos.balance
 
-        ave_buy_price_rub = calculate_ave_buy_price_rub(this_pos)
-        sum_buy_rub = ave_buy_price_rub * this_pos.balance
+            ave_buy_price_rub = calculate_ave_buy_price_rub(this_pos)
+            sum_buy_rub = ave_buy_price_rub * this_pos.balance
 
-        tax_base = Decimal(max(0, market_cost_rub_cb - sum_buy_rub))
-        exp_tax = tax_base * Decimal(tax_rate / 100)
+            tax_base = Decimal(max(0, market_cost_rub_cb - sum_buy_rub))
+            exp_tax = tax_base * Decimal(tax_rate / 100)
+
+            logger.info(this_pos.name)
+
+        else:  # in the case, if this position has ZERO purchase price
+            sum_buy = Decimal(0)
+            market_price = Decimal(0)
+            percent_change = Decimal(0)
+            market_cost = Decimal(0)
+            market_cost_rub_cb = Decimal(0)
+            ave_buy_price_rub = Decimal(0)
+            sum_buy_rub = Decimal(0)
+            tax_base = Decimal(0)
+            exp_tax = Decimal(0)
+            logger.warning(this_pos.name + ' - not enough data!')
 
         my_positions.append(PortfolioPosition(this_pos.figi, this_pos.name, this_pos.ticker, this_pos.balance,
                                               this_pos.average_position_price.currency,
@@ -150,8 +166,6 @@ def creating_positions_objects():
                                               this_pos.expected_yield.value,
                                               market_price, percent_change, market_cost, market_cost_rub_cb,
                                               ave_buy_price_rub, sum_buy_rub, tax_base, exp_tax))
-
-        logger.info(this_pos.name)
 
     logger.info('..positions are ready')
     return my_positions
