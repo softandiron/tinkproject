@@ -10,10 +10,20 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from dateutil.relativedelta import relativedelta
+from pycbrf.rates import ExchangeRate
 from pycbrf.toolbox import ExchangeRates
 
 import data_parser
-import excel_builder
+from excel_builder import build_excel_file, supported_currencies
+
+# creating ruble 1:1 exchange rate for cleaner iterating over currencies
+ruble = ExchangeRate(code='RUB', value=1, rate=1, name='Рубль', id='KOSTYL', num='KOSTYL', par='KOSTYL')
+
+
+def get_exchange_rate(date):
+    rate = ExchangeRates(date)
+    rate.rates.append(ruble)
+    return rate
 
 
 @dataclass
@@ -56,19 +66,15 @@ def calculate_ave_buy_price_rub(this_pos):
     item_list = []
     # for this position's figi - add units into the list from operations
     for ops in reversed(operations.payload.operations):
+        rate_for_date = get_exchange_rate(ops.date)
+
         if ops.figi == this_pos.figi and ops.payment != 0:
             if ops.operation_type == 'Buy':
-                if ops.currency == 'RUB':
-                    # price for 1 item
-                    item = ops.payment / ops.quantity_executed
-                    # add bought items to the list:
-                    item_list += [item]*ops.quantity_executed
-                elif ops.currency in ['USD', 'EUR']:
-                    rate_for_date = ExchangeRates(ops.date)
+                if ops.currency in supported_currencies:
                     # price for 1 item
                     item = (ops.payment / ops.quantity_executed) * rate_for_date[ops.currency].value
                     # add bought items to the list:
-                    item_list += [item]*ops.quantity_executed
+                    item_list += [item] * ops.quantity_executed
                 else:
                     logger.warning('unknown currency in position: ' + this_pos.name)
             elif ops.operation_type == 'Sell':
@@ -122,9 +128,7 @@ def creating_positions_objects():
 
         global market_cost_rub_cb
         # market value rub CB
-        if this_pos.average_position_price.currency == 'RUB':
-            market_cost_rub_cb = market_cost
-        elif this_pos.average_position_price.currency in ['USD', 'EUR']:
+        if this_pos.average_position_price.currency in supported_currencies:
             market_cost_rub_cb = market_cost * rates_today_cb[this_pos.average_position_price.currency].value
             time.sleep(delay_time)  # to prevent TimeOut error
         else:
@@ -154,27 +158,20 @@ def creating_positions_objects():
 
 
 def get_average_percent():
-    sum_buy_list = []
+    sum_buy_list, yield_list = [], []
     for this_pos in my_positions:
-        if this_pos.currency in ['RUB', 'USD', 'EUR']:
+        if this_pos.currency in supported_currencies:
             sum_buy_list.append(this_pos.sum_buy * market_rate_today[this_pos.currency])
-        else:
-            logger.warning(f'Unsupported currency: {this_pos.currency}')
-    total_sum_buy = sum(sum_buy_list)
-    yield_list = []
-    for this_pos in my_positions:
-        if this_pos.currency in ['RUB', 'USD', 'EUR']:
             yield_list.append(this_pos.exp_yield * market_rate_today[this_pos.currency])
         else:
             logger.warning(f'Unsupported currency: {this_pos.currency}')
-    total_yield = sum(yield_list)
-    return (total_yield/total_sum_buy)*100
+    return (sum(yield_list) / sum(sum_buy_list)) * 100
 
 
 def get_portfolio_cost_rub_market():
     costs_list = []
     for this_pos in my_positions:
-        if this_pos.currency in ['RUB', 'USD', 'EUR']:
+        if this_pos.currency in supported_currencies:
             costs_list.append(this_pos.market_cost * market_rate_today[this_pos.currency])
         else:
             logger.warning(f'Unsupported currency: {this_pos.currency}')
@@ -210,10 +207,8 @@ def calculate_operations_sums_rub(current_op_type):
     op_list = []
     for op in my_operations:
         if op.op_type == current_op_type and op.op_payment != 0:
-            if op.op_currency == 'RUB':
-                op_list.append(op.op_payment)
-            elif op.op_currency in ['USD', 'EUR']:
-                rate = ExchangeRates(op.op_date)
+            if op.op_currency in supported_currencies:
+                rate = get_exchange_rate(op.op_date)
                 op_list.append(op.op_payment * rate[op.op_currency].value)
                 time.sleep(delay_time)  # to prevent TimeOut error
             else:
@@ -229,12 +224,10 @@ def calc_investing_period():
 
 if __name__ == '__main__':
 
-    logging.basicConfig(level=logging.WARNING, format='%(levelname)s: %(asctime)s - %(message)s', datefmt='%H:%M:%S')
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(asctime)s - %(message)s', datefmt='%H:%M:%S')
     logger = logging.getLogger()
-    if sys.argv[-1] in ['-nv', '-noVerbose']:
-        pass
-    else:
-        logger.setLevel(logging.INFO)
+    if sys.argv[-1] in ['-q', '--quiet']:
+        logger.setLevel(logging.WARNING)
 
     start_time = time.time()
     delay_time = 0.2
@@ -244,7 +237,7 @@ if __name__ == '__main__':
     positions, operations, market_rate_today, currencies = data_parser.get_api_data(logger)
 
     account_data = data_parser.parse_text_file(logger)
-    rates_today_cb = ExchangeRates(account_data['now_date'])
+    rates_today_cb = get_exchange_rate(account_data['now_date'])
 
     cash_rub = get_portfolio_cash_rub()
     my_positions = creating_positions_objects()
@@ -273,8 +266,8 @@ if __name__ == '__main__':
     payin_payout = sum_profile['payin'] - abs(sum_profile['payout'])
 
     # EXCEL
-    excel_builder.build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_today,
-                                   average_percent, portfolio_cost_rub_market, sum_profile,
-                                   investing_period_str, cash_rub, payin_payout, logger)
+    build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_today,
+                     average_percent, portfolio_cost_rub_market, sum_profile,
+                     investing_period_str, cash_rub, payin_payout, logger)
 
     logger.info(f'done in {time.time() - start_time:.2f} seconds')
