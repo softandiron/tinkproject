@@ -6,25 +6,12 @@
 import logging
 import sys
 import time
+from datetime import datetime
 from dataclasses import dataclass
 from decimal import Decimal
 
-from dateutil.relativedelta import relativedelta
-from pycbrf.rates import ExchangeRate
-from pycbrf.toolbox import ExchangeRates
-
 import data_parser
 from excel_builder import build_excel_file, supported_currencies
-
-# creating ruble 1:1 exchange rate for cleaner iterating over currencies
-ruble = ExchangeRate(code='RUB', value=Decimal(1), rate=Decimal(1), name='Рубль', id='KOSTYL', num='KOSTYL',
-                     par=Decimal(1))
-
-
-def get_exchange_rate(date):
-    rate = ExchangeRates(date)
-    rate.rates.append(ruble)
-    return rate
 
 
 @dataclass
@@ -67,13 +54,14 @@ def calculate_ave_buy_price_rub(this_pos):
     item_list = []
     # for this position's figi - add units into the list from operations
     for ops in reversed(operations.payload.operations):
-        rate_for_date = get_exchange_rate(ops.date)
+        date = datetime.date(ops.date)
+        rate_for_date = rates_CB[date]
 
         if ops.figi == this_pos.figi and ops.payment != 0:
             if ops.operation_type == 'Buy':
                 if ops.currency in supported_currencies:
                     # price for 1 item
-                    item = (ops.payment / ops.quantity_executed) * rate_for_date[ops.currency].value
+                    item = (ops.payment / ops.quantity_executed) * rate_for_date[ops.currency]
                     # add bought items to the list:
                     item_list += [item] * ops.quantity_executed
                 else:
@@ -82,7 +70,6 @@ def calculate_ave_buy_price_rub(this_pos):
                 # remove sold items from the list:
                 number = ops.quantity_executed
                 del item_list[:number]
-            time.sleep(delay_time)  # to prevent TimeOut error
 
         # solving problem with TCSG stocks:
         if this_pos.figi == 'BBG00QPYJ5H0':
@@ -131,8 +118,7 @@ def creating_positions_objects():
             global market_cost_rub_cb
             # market value rub CB
             if this_pos.average_position_price.currency in supported_currencies:
-                market_cost_rub_cb = market_cost * rates_today_cb[this_pos.average_position_price.currency].value
-                time.sleep(delay_time)  # to prevent TimeOut error
+                market_cost_rub_cb = market_cost * rates_CB[today_date][this_pos.average_position_price.currency]
             else:
                 market_cost_rub_cb = 'unknown currency'
 
@@ -222,18 +208,12 @@ def calculate_operations_sums_rub(current_op_type):
     for op in my_operations:
         if op.op_type == current_op_type and op.op_payment != 0:
             if op.op_currency in supported_currencies:
-                rate = get_exchange_rate(op.op_date)
-                op_list.append(op.op_payment * rate[op.op_currency].value)
-                time.sleep(delay_time)  # to prevent TimeOut error
+                date = datetime.date(op.op_date)  # op_date has a datetime.datetime type. I don't know, what a problem.
+                rate = rates_CB[date]
+                op_list.append(op.op_payment * rate[op.op_currency])
             else:
                 logger.warning(f'Unsupported currency: {op.op_currency}')
     return sum(op_list)
-
-
-def calc_investing_period():
-    start_date = account_data['start_date'].replace(tzinfo=None)
-    inv_period = relativedelta(account_data['now_date'], start_date)
-    return inv_period
 
 
 if __name__ == '__main__':
@@ -244,15 +224,19 @@ if __name__ == '__main__':
         logger.setLevel(logging.WARNING)
 
     start_time = time.time()
-    delay_time = 0.2
     tax_rate = 13  # percents
     logger.info('Start')
 
+    # from data_parser
     positions, operations, market_rate_today, currencies = data_parser.get_api_data(logger)
-
     account_data = data_parser.parse_text_file(logger)
-    rates_today_cb = get_exchange_rate(account_data['now_date'])
+    today_date = datetime.date(account_data['now_date'])
+    investing_period = data_parser.calc_investing_period(logger)
+    investing_period_str = f'{investing_period.years}y {investing_period.months}m {investing_period.days}d'
+    rates_CB = data_parser.loop_dates(logger)
+    rates_today_cb = rates_CB[today_date]
 
+    # from main
     cash_rub = get_portfolio_cash_rub()
     my_positions = creating_positions_objects()
     average_percent = get_average_percent()
@@ -265,16 +249,12 @@ if __name__ == '__main__':
 
     my_operations = create_operations_objects()
 
-    for operation in ['PayIn', 'PayOut', 'Buy', 'BuyCard', 'Sell', 'Coupon', 'Dividend', 'Tax', 'TaxCoupon', 'TaxDividend', 'BrokerCommission', 'ServiceCommission']:
+    for operation in ['PayIn', 'PayOut', 'Buy', 'BuyCard', 'Sell', 'Coupon', 'Dividend', 'Tax', 'TaxCoupon',
+                      'TaxDividend', 'BrokerCommission', 'ServiceCommission']:
         logger.info(f'calculating {operation} operations sum in RUB..')
         sum_profile[operation.lower()] = calculate_operations_sums_rub(operation)
 
     logger.info('preparing statistics')
-
-    # investing period
-    investing_period = calc_investing_period()
-    investing_period_str = f'{investing_period.years}y {investing_period.months}m {investing_period.days}d'
-    logger.info(f'investing period: {investing_period_str}\n')
 
     # PayIn - PayOut
     payin_payout = sum_profile['payin'] - abs(sum_profile['payout'])
