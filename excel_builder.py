@@ -72,8 +72,8 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
             logger.info('printing CB rates..')
             worksheet_port.write(s_row - 3, s_col + 12, 'Central Bank', cell_format['bold_center'])
             worksheet_port.write(s_row - 3, s_col + 13, 'today rates:', cell_format['bold_center'])
-            worksheet_port.write(s_row - 2, s_col + 12, f"USD = {rates_today_cb['USD'].value}", cell_format['center'])
-            worksheet_port.write(s_row - 2, s_col + 13, f"EUR = {rates_today_cb['EUR'].value}", cell_format['center'])
+            worksheet_port.write(s_row - 2, s_col + 12, f"USD = {rates_today_cb['USD']}", cell_format['center'])
+            worksheet_port.write(s_row - 2, s_col + 13, f"EUR = {rates_today_cb['EUR']}", cell_format['center'])
 
         def build_market_rates():
             logger.info('printing market rates..')
