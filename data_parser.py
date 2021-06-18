@@ -1,9 +1,63 @@
 # get all necessary data from Tinkoff API
 import logging
-from datetime import datetime
+
+import time
+from pytz import timezone
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
+
+from decimal import Decimal
 
 import tinvest
-from pytz import timezone
+from pycbrf.rates import ExchangeRate
+from pycbrf.toolbox import ExchangeRates
+
+# creating ruble 1:1 exchange rate for cleaner iterating over currencies
+ruble = ExchangeRate(code='RUB', value=Decimal(1), rate=Decimal(1), name='Рубль', id='KOSTYL', num='KOSTYL',
+                     par=Decimal(1))
+delay_time = 0.1
+
+
+def get_exchange_rate(date):
+    rate = ExchangeRates(date)
+    rate.rates.append(ruble)
+    return rate
+
+
+def calc_investing_period(logger):
+    start_date = account_data['start_date'].replace(tzinfo=None)
+    current_date = account_data['now_date']
+    inv_period = relativedelta(current_date, start_date)
+    logger.info('investing period: ' + str(inv_period.years) + ' years ' + str(inv_period.months) + ' months '
+                                                                         + str(inv_period.days) + ' days')
+    return inv_period
+
+
+def generate_date_range():
+    start_date = account_data['start_date'].replace(tzinfo=None)
+    current_date = account_data['now_date']
+    for n in range(int((current_date - start_date).days)):
+        yield datetime.date(start_date + timedelta(n))
+
+
+def loop_dates(logger=logging.getLogger()):
+    logger.info('parsing rates for each date from Central Bank..')
+    day_rates = {}
+    for each_date in generate_date_range():
+        date = each_date
+        rates = get_exchange_rate(date)
+        usd = rates['USD'].value
+        eur = rates['EUR'].value
+        rub = Decimal(1)
+        day_rates.update({date: {'USD': usd, 'EUR': eur, 'RUB': rub}})
+        time.sleep(delay_time)
+    rates = get_exchange_rate(account_data['now_date'])
+    # add the today day
+    day_rates.update({datetime.date(account_data['now_date'].replace(tzinfo=None)): {'USD': rates['USD'].value,
+                                                                                     'EUR': rates['EUR'].value,
+                                                                                     'RUB': Decimal(1)}})
+    logger.info('all the rates are saved')
+    return day_rates
 
 
 def parse_text_file(logger=logging.getLogger()):
