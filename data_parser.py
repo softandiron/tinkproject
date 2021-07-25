@@ -1,4 +1,5 @@
 # get all necessary data from Tinkoff API
+import decimal
 import logging
 
 import time
@@ -11,6 +12,8 @@ from decimal import Decimal
 import tinvest
 from pycbrf.rates import ExchangeRate
 from pycbrf.toolbox import ExchangeRates
+
+import csv
 
 # creating ruble 1:1 exchange rate for cleaner iterating over currencies
 ruble = ExchangeRate(code='RUB', value=Decimal(1), rate=Decimal(1), name='Рубль', id='KOSTYL', num='KOSTYL',
@@ -41,21 +44,46 @@ def generate_date_range():
 
 
 def loop_dates(logger=logging.getLogger()):
-    logger.info('parsing rates for each date from Central Bank..')
     day_rates = {}
-    for each_date in generate_date_range():
-        date = each_date
-        rates = get_exchange_rate(date)
-        usd = rates['USD'].value
-        eur = rates['EUR'].value
-        rub = Decimal(1)
-        day_rates.update({date: {'USD': usd, 'EUR': eur, 'RUB': rub}})
-        time.sleep(delay_time)
-    rates = get_exchange_rate(account_data['now_date'])
-    # add the today day
-    day_rates.update({datetime.date(account_data['now_date'].replace(tzinfo=None)): {'USD': rates['USD'].value,
-                                                                                     'EUR': rates['EUR'].value,
-                                                                                     'RUB': Decimal(1)}})
+
+    logger.info('downloading CB rates from saved Database..')
+    with open('data.csv', 'r') as file:
+        reader = csv.reader(file)
+        # creating a dictionary from csv:
+        for row in reader:
+            if row[0] == "date":
+                continue
+            date = datetime.strptime(row[0], '%Y-%m-%d').date()
+            usd = decimal.Decimal(row[1])
+            eur = decimal.Decimal(row[2])
+            rub = decimal.Decimal(row[3])
+            day_rates.update({date: {'USD': usd, 'EUR': eur, 'RUB': rub}})
+
+        # checking for new dates, and adding them from CB API to dictionary:
+        logger.info('checking for the new dates..')
+        for date in generate_date_range():
+            if date not in day_rates.keys():
+                logger.info('new date: ' + str(date))
+                rates = get_exchange_rate(date)
+                usd = rates['USD'].value
+                eur = rates['EUR'].value
+                rub = Decimal(1)
+                day_rates.update({date: {'USD': usd, 'EUR': eur, 'RUB': rub}})
+                time.sleep(delay_time)
+
+        # updating the csv file for the future:
+        logger.info('updating Database..')
+        with open('data.csv', 'w', newline='') as file:
+            writer = csv.writer(file)
+            for date in day_rates.keys():
+                writer.writerow([date, usd, eur, rub])
+
+        rates = get_exchange_rate(account_data['now_date'])
+        # add the today day
+        day_rates.update({datetime.date(account_data['now_date'].replace(tzinfo=None)): {'USD': rates['USD'].value,
+                                                                                         'EUR': rates['EUR'].value,
+                                                                                         'RUB': Decimal(1)}})
+
     logger.info('all the rates are saved')
     return day_rates
 
