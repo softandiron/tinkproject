@@ -27,6 +27,7 @@ class PortfolioPosition:
     market_price: Decimal
     percent_change: Decimal
     market_cost: Decimal
+    market_value_rub: Decimal
     market_cost_rub_cb: Decimal
     ave_buy_price_rub: Decimal
     sum_buy_rub: Decimal
@@ -115,8 +116,11 @@ def creating_positions_objects():
             # % change
             percent_change = ((market_price / this_pos.average_position_price.value) * 100) - 100
 
+            # market value RUB (total cost for each position)
+            market_value_rub = market_cost * market_rate_today[this_pos.average_position_price.currency]
+
             global market_cost_rub_cb
-            # market value rub CB
+            # total value rub CB
             if this_pos.average_position_price.currency in supported_currencies:
                 market_cost_rub_cb = market_cost * rates_CB[today_date][this_pos.average_position_price.currency]
             else:
@@ -136,9 +140,10 @@ def creating_positions_objects():
 
         else:  # in the case, if this position has ZERO purchase price
             sum_buy = Decimal(0)
-            market_price = Decimal(0)
+            market_price = data_parser.get_current_market_price(this_pos.figi)
             percent_change = Decimal(0)
-            market_cost = Decimal(0)
+            market_cost = market_price * this_pos.balance
+            market_value_rub = market_cost * market_rate_today[this_pos.average_position_price.currency]
             market_cost_rub_cb = Decimal(0)
             ave_buy_price_rub = Decimal(0)
             sum_buy_rub = Decimal(0)
@@ -150,8 +155,8 @@ def creating_positions_objects():
                                               this_pos.average_position_price.currency,
                                               this_pos.average_position_price.value, sum_buy,
                                               this_pos.expected_yield.value,
-                                              market_price, percent_change, market_cost, market_cost_rub_cb,
-                                              ave_buy_price_rub, sum_buy_rub, tax_base, exp_tax))
+                                              market_price, percent_change, market_cost, market_value_rub,
+                                              market_cost_rub_cb, ave_buy_price_rub, sum_buy_rub, tax_base, exp_tax))
 
     logger.info('..positions are ready')
     return my_positions
