@@ -116,7 +116,20 @@ def get_api_data(logger=logging.getLogger()):
     market_rate_today = {'USD': course_usd.payload.last_price,
                          'EUR': course_eur.payload.last_price,
                          'RUB': 1}
+
+    # getting current market price for each position
+    # market_prices = {}
+    # for pos in positions.payload.positions:
+    #     price = client.get_market_orderbook(figi=pos.figi, depth=20)
+    #     market_prices[pos.figi] = price.payload.last_price
+    # attention: market_prices are without accumulated coupon yield (НКД)! Don't use it for bonds by default.
     return positions, operations, market_rate_today, currencies
 
+
+def get_current_market_price(figi):
+    client = tinvest.SyncClient(account_data['my_token'])
+    book = client.get_market_orderbook(figi=figi, depth=20)
+    price = book.payload.last_price
+    return price
 
 account_data = parse_text_file()
