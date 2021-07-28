@@ -205,12 +205,18 @@ def calculate_sum_exp_tax():
 def create_operations_objects():
     logger.info('creating operations objects..')
     my_operations = list()
+    instruments_dictionary = {}
     for this_op in operations.payload.operations:
         if this_op.figi != None:
-            # ticker = data_parser.get_thicker_by_figi(this_op.figi)
-            ticker = "None"
+            if this_op.figi not in instruments_dictionary:
+                instrument = data_parser.get_instrument_by_figi(this_op.figi)
+                ticker = instrument.payload.ticker
+                instruments_dictionary[this_op.figi] = ticker
+            else:
+                ticker = instruments_dictionary[this_op.figi]
         else:
             ticker = "None"
+
         my_operations.append(PortfolioOperation(this_op.operation_type,
                                                 this_op.date,
                                                 this_op.currency,
