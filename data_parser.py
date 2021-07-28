@@ -134,4 +134,10 @@ def get_position_type(figi):
     return type
 
 
+def get_instrument_by_figi(figi):
+    client = tinvest.SyncClient(account_data['my_token'])
+    instrument = client.get_market_search_by_figi(figi)
+    return  instrument
+
+
 account_data = parse_text_file()
