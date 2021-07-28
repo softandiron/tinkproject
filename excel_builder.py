@@ -179,7 +179,7 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
         start_col = 1
         def print_operations_by_type(ops_type, start_row, start_col):
             # set column width
-            worksheet_ops.set_column(start_col, start_col, 17, cell_format['right'])
+            worksheet_ops.set_column(start_col, start_col, 18, cell_format['right'])
             worksheet_ops.set_column(start_col + 1, start_col + 1, 16, cell_format['right'])
             worksheet_ops.set_column(start_col + 2, start_col + 2, 4, cell_format['right'])
 
@@ -193,12 +193,47 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
             for operation in my_operations:
                 if operation.op_type == ops_type:
                     # operation's date
-                    worksheet_ops.write(start_row, start_col, operation.op_date.strftime('%Y %b %d  %H:%M'), cell_format['right'])
+                    worksheet_ops.write(start_row, start_col, operation.op_date.strftime('%Y %b %d  %H:%M'), cell_format['left'])
                     # operation's value (payment in the operation's currency)
                     if operation.op_currency in supported_currencies:
                         worksheet_ops.write(start_row, start_col + 1, operation.op_payment, cell_format[operation.op_currency])
                     else:
                         worksheet_ops.write(start_row, start_col + 1, 'unknown currency', cell_format['right'])
+                    start_row += 1
+
+            finish_row = start_row + 1
+            return finish_row
+
+        def print_operations_with_ticker(ops_type, start_row, start_col):
+            # set column width
+            worksheet_ops.set_column(start_col, start_col, 18, cell_format['right'])
+            worksheet_ops.set_column(start_col + 1, start_col + 1, 16, cell_format['right'])
+            worksheet_ops.set_column(start_col + 2, start_col + 2, 16, cell_format['right'])
+            worksheet_ops.set_column(start_col + 3, start_col + 3, 4, cell_format['right'])
+
+            # header
+            name = ops_type + ' operations'
+            worksheet_ops.write(start_row, start_col, name, cell_format['bold_center'])
+            worksheet_ops.write(start_row, start_col + 1, 'ticker', cell_format['bold_center'])
+            worksheet_ops.write(start_row, start_col + 2, 'value', cell_format['bold_center'])
+            # body
+            start_row += 1
+            worksheet_ops.write(start_row, start_col, 'start', cell_format['right'])
+            for operation in my_operations:
+                if operation.op_type == ops_type:
+                    # operation's date
+                    worksheet_ops.write(start_row, start_col, operation.op_date.strftime('%Y %b %d  %H:%M'),
+                                        cell_format['left'])
+                    # operation's ticker
+                    worksheet_ops.write(start_row, start_col + 1, operation.op_ticker,
+                                        cell_format['left'])
+
+                    # operation's value (payment in the operation's currency)
+                    if operation.op_currency in supported_currencies:
+                        worksheet_ops.write(start_row, start_col + 2, operation.op_payment,
+                                            cell_format[operation.op_currency])
+                    else:
+                        worksheet_ops.write(start_row, start_col + 2, 'unknown currency', cell_format['right'])
                     start_row += 1
 
             finish_row = start_row + 1
@@ -216,48 +251,48 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
 
         # BUY operations
         logger.info('building Buy operations list..')
-        last_row_buy = print_operations_by_type('Buy', s_row, s_col + 6)
-        worksheet_ops.write(last_row_buy, s_col + 7, sum_profile['buy'], cell_format['RUB'])
+        last_row_buy = print_operations_with_ticker('Buy', s_row, s_col + 6)
+        worksheet_ops.write(last_row_buy, s_col + 8, sum_profile['buy'], cell_format['RUB'])
         # BUY CARD operations
         logger.info('building Buy Card operations list..')
-        last_row_buycard = print_operations_by_type('BuyCard', last_row_buy + 3, s_col + 6)
-        worksheet_ops.write(last_row_buycard, s_col + 7, sum_profile['buycard'], cell_format['RUB'])
+        last_row_buycard = print_operations_with_ticker('BuyCard', last_row_buy + 3, s_col + 6)
+        worksheet_ops.write(last_row_buycard, s_col + 8, sum_profile['buycard'], cell_format['RUB'])
 
         # SELL operations
         logger.info('building Sell operations list..')
-        last_row_sell = print_operations_by_type('Sell', s_row, s_col + 9)
-        worksheet_ops.write(last_row_sell, s_col + 10, sum_profile['sell'], cell_format['RUB'])
+        last_row_sell = print_operations_with_ticker('Sell', s_row, s_col + 10)
+        worksheet_ops.write(last_row_sell, s_col + 12, sum_profile['sell'], cell_format['RUB'])
 
         # Coupon operations
         logger.info('building Coupon operations list..')
-        last_row_coupon = print_operations_by_type('Coupon', s_row, s_col + 12)
-        worksheet_ops.write(last_row_coupon, s_col + 13, sum_profile['coupon'], cell_format['RUB'])
+        last_row_coupon = print_operations_with_ticker('Coupon', s_row, s_col + 14)
+        worksheet_ops.write(last_row_coupon, s_col + 16, sum_profile['coupon'], cell_format['RUB'])
 
         # Dividend operations
         logger.info('building Dividend operations list..')
-        last_row_dividend = print_operations_by_type('Dividend', s_row, s_col + 15)
-        worksheet_ops.write(last_row_dividend, s_col + 16, sum_profile['dividend'], cell_format['RUB'])
+        last_row_dividend = print_operations_with_ticker('Dividend', s_row, s_col + 18)
+        worksheet_ops.write(last_row_dividend, s_col + 20, sum_profile['dividend'], cell_format['RUB'])
 
         # Tax operations
         logger.info('building Tax operations list..')
-        last_row_tax = print_operations_by_type('Tax', s_row, s_col + 18)
-        worksheet_ops.write(last_row_tax, s_col + 19, sum_profile['tax'], cell_format['RUB'])
+        last_row_tax = print_operations_with_ticker('Tax', s_row, s_col + 22)
+        worksheet_ops.write(last_row_tax, s_col + 24, sum_profile['tax'], cell_format['RUB'])
         # Tax Coupon operations
         logger.info('building Tax Coupon operations list..')
-        last_row_tax_coupon = print_operations_by_type('TaxCoupon', last_row_tax + 3, s_col + 18)
-        worksheet_ops.write(last_row_tax_coupon, s_col + 19, sum_profile['taxcoupon'], cell_format['RUB'])
+        last_row_tax_coupon = print_operations_with_ticker('TaxCoupon', last_row_tax + 3, s_col + 22)
+        worksheet_ops.write(last_row_tax_coupon, s_col + 24, sum_profile['taxcoupon'], cell_format['RUB'])
         # Tax Dividend operations
         logger.info('building Tax Dividend operations list..')
-        last_row_tax_dividend = print_operations_by_type('TaxDividend', last_row_tax_coupon + 3, s_col + 18)
-        worksheet_ops.write(last_row_tax_dividend, s_col + 19, sum_profile['taxdividend'], cell_format['RUB'])
+        last_row_tax_dividend = print_operations_with_ticker('TaxDividend', last_row_tax_coupon + 3, s_col + 22)
+        worksheet_ops.write(last_row_tax_dividend, s_col + 24, sum_profile['taxdividend'], cell_format['RUB'])
 
         # Commission
         logger.info('building Broker Commission operations list..')
-        last_row_broker_commission = print_operations_by_type('BrokerCommission', s_row, s_col + 21)
-        worksheet_ops.write(last_row_broker_commission, s_col + 22, sum_profile['brokercommission'], cell_format['RUB'])
+        last_row_broker_commission = print_operations_by_type('BrokerCommission', s_row, s_col + 26)
+        worksheet_ops.write(last_row_broker_commission, s_col + 27, sum_profile['brokercommission'], cell_format['RUB'])
         logger.info('building Service Commission operations list..')
-        last_row_broker_serv_commission = print_operations_by_type('ServiceCommission', last_row_broker_commission + 3, s_col + 21)
-        worksheet_ops.write(last_row_broker_serv_commission, s_col + 22, sum_profile['servicecommission'], cell_format['RUB'])
+        last_row_broker_serv_commission = print_operations_by_type('ServiceCommission', last_row_broker_commission + 3, s_col + 26)
+        worksheet_ops.write(last_row_broker_serv_commission, s_col + 27, sum_profile['servicecommission'], cell_format['RUB'])
 
     def print_statistics(s_row, s_col):
         # investing period
