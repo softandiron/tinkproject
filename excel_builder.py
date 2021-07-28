@@ -82,49 +82,66 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
             worksheet_port.write(s_row - 2, s_col + 9, f"USD = {market_rate_today['USD']}", cell_format['center'])
             worksheet_port.write(s_row - 2, s_col + 10, f"EUR = {market_rate_today['EUR']}", cell_format['center'])
 
-        def print_content():
-            logger.info('content printing..')
+        def print_content(pos_type):
+            logger.info('content printing: ' + pos_type + 's')
             row = s_row + 1
             col = s_col
             for this_pos in my_positions:
-                worksheet_port.write(row, col, this_pos.name, cell_format['left'])
-                worksheet_port.write(row, col + 1, this_pos.ticker, cell_format['left'])
-                worksheet_port.write(row, col + 2, this_pos.balance, cell_format['left'])
-                worksheet_port.write(row, col + 3, this_pos.currency, cell_format['left'])
+                def print_position_data(row, col):
+                    worksheet_port.write(row, col, this_pos.name, cell_format['left'])
+                    worksheet_port.write(row, col + 1, this_pos.ticker, cell_format['left'])
+                    worksheet_port.write(row, col + 2, this_pos.balance, cell_format['left'])
+                    worksheet_port.write(row, col + 3, this_pos.currency, cell_format['left'])
 
-                if this_pos.currency in supported_currencies:
-                    worksheet_port.write(row, col + 4, this_pos.ave_price, cell_format[this_pos.currency])
-                    worksheet_port.write(row, col + 5, this_pos.sum_buy, cell_format[this_pos.currency])
-                    worksheet_port.write(row, col + 6, this_pos.exp_yield, cell_format[this_pos.currency])
-                    worksheet_port.write(row, col + 7, this_pos.market_price, cell_format[this_pos.currency])
-                    worksheet_port.write(row, col + 9, this_pos.market_cost, cell_format[this_pos.currency])
-                    worksheet_port.write(row, col + 10, this_pos.market_cost * market_rate_today[this_pos.currency], cell_format['RUB'])
-                else:
-                    worksheet_port.write(row, col + 4, 'unknown currency', cell_format['right'])
-                    worksheet_port.write(row, col + 5, 'unknown currency', cell_format['right'])
-                    worksheet_port.write(row, col + 6, 'unknown currency', cell_format['right'])
-                    worksheet_port.write(row, col + 8, 'unknown currency', cell_format['right'])
-                    worksheet_port.write(row, col + 9, 'unknown currency', cell_format['right'])
-                    worksheet_port.write(row, col + 10, 'unknown currency', cell_format['right'])
+                    if this_pos.currency in supported_currencies:
+                        worksheet_port.write(row, col + 4, this_pos.ave_price, cell_format[this_pos.currency])
+                        worksheet_port.write(row, col + 5, this_pos.sum_buy, cell_format[this_pos.currency])
+                        worksheet_port.write(row, col + 6, this_pos.exp_yield, cell_format[this_pos.currency])
+                        worksheet_port.write(row, col + 7, this_pos.market_price, cell_format[this_pos.currency])
+                        worksheet_port.write(row, col + 9, this_pos.market_cost, cell_format[this_pos.currency])
+                        worksheet_port.write(row, col + 10, this_pos.market_cost * market_rate_today[this_pos.currency],
+                                             cell_format['RUB'])
+                    else:
+                        worksheet_port.write(row, col + 4, 'unknown currency', cell_format['right'])
+                        worksheet_port.write(row, col + 5, 'unknown currency', cell_format['right'])
+                        worksheet_port.write(row, col + 6, 'unknown currency', cell_format['right'])
+                        worksheet_port.write(row, col + 8, 'unknown currency', cell_format['right'])
+                        worksheet_port.write(row, col + 9, 'unknown currency', cell_format['right'])
+                        worksheet_port.write(row, col + 10, 'unknown currency', cell_format['right'])
 
-                # % change
-                cell_format['perc'] = workbook.add_format({'num_format': '0.00  ',
-                                                           'font_color': get_color(this_pos.percent_change)})
-                worksheet_port.write(row, col + 8, this_pos.percent_change, cell_format['perc'])
+                    # % change
+                    cell_format['perc'] = workbook.add_format({'num_format': '0.00  ',
+                                                               'font_color': get_color(this_pos.percent_change)})
+                    worksheet_port.write(row, col + 8, this_pos.percent_change, cell_format['perc'])
 
-                worksheet_port.write(row, col + 12, this_pos.market_cost_rub_cb, cell_format['RUB'])
-                worksheet_port.write(row, col + 13, this_pos.ave_buy_price_rub, cell_format['RUB'])
-                worksheet_port.write(row, col + 14, this_pos.sum_buy_rub, cell_format['RUB'])
-                worksheet_port.write(row, col + 15, this_pos.tax_base, cell_format['RUB'])
-                worksheet_port.write(row, col + 16, this_pos.exp_tax, cell_format['RUB'])
+                    worksheet_port.write(row, col + 12, this_pos.market_cost_rub_cb, cell_format['RUB'])
+                    worksheet_port.write(row, col + 13, this_pos.ave_buy_price_rub, cell_format['RUB'])
+                    worksheet_port.write(row, col + 14, this_pos.sum_buy_rub, cell_format['RUB'])
+                    worksheet_port.write(row, col + 15, this_pos.tax_base, cell_format['RUB'])
+                    worksheet_port.write(row, col + 16, this_pos.exp_tax, cell_format['RUB'])
 
-                row += 1
+                    row += 1
 
+                    return row
+
+                if this_pos.position_type == pos_type:
+                    row = print_position_data(row, col)
+
+                if pos_type == "Other":
+                    if this_pos.position_type != "Stock"\
+                            and this_pos.position_type != "Bond"\
+                            and this_pos.position_type != "Etf"\
+                            and this_pos.position_type != "Currency":
+                        row = print_position_data(row, col)
+
+            return row
+
+        def print_totals(row, col):
             worksheet_port.write(row, col, 'Рубль деревянный кэшем', cell_format['left'])
             for shift in [2, 10, 12]:
-                worksheet_port.write(row, col+shift, cash_rub, cell_format['RUB'])
+                worksheet_port.write(row, col + shift, cash_rub, cell_format['RUB'])
             for shift in set(range(1, 16)) - {2, 10, 11, 12}:
-                worksheet_port.write(row, col+shift, '-', cell_format['center'])
+                worksheet_port.write(row, col + shift, '-', cell_format['center'])
             row += 1
 
             # portfolio market cost in rub
@@ -133,21 +150,27 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
             # average percent
             worksheet_port.write(row + 1, col + 7, 'ave. %', cell_format['bold_right'])
 
-            cell_format['perc'] = workbook.add_format({'num_format': '0.00  ', 'font_color': get_color(average_percent)})
+            cell_format['perc'] = workbook.add_format(
+                {'num_format': '0.00  ', 'font_color': get_color(average_percent)})
             worksheet_port.write(row + 1, col + 8, average_percent, cell_format['perc'])
 
             worksheet_port.write(row + 1, col + 12, sum_profile['portfolio_value_rub_cb'], cell_format['RUB'])
             worksheet_port.write(row + 1, col + 14, sum_profile['pos_ave_buy_rub'], cell_format['RUB'])
             worksheet_port.write(row + 1, col + 16, sum_profile['exp_tax'], cell_format['RUB'])
 
-            return row
+            return row + 1
 
         # execute
         set_columns_width()
         build_header()
         build_cb_rate()
         build_market_rates()
-        last_row = print_content()
+        s_row = print_content("Stock")
+        s_row = print_content("Bond")
+        s_row = print_content("Etf")
+        s_row = print_content("Other")
+        last_row = print_content("Currency")
+        print_totals(last_row, s_col)
 
         return last_row
 
