@@ -9,6 +9,7 @@ import time
 from datetime import datetime
 from dataclasses import dataclass
 from decimal import Decimal
+import operator
 
 import data_parser
 from excel_builder import build_excel_file, supported_currencies
@@ -20,6 +21,7 @@ class PortfolioPosition:
     name: str
     ticker: str
     balance: Decimal
+    position_type: str
     currency: Decimal
     ave_price: Decimal
     sum_buy: Decimal
@@ -41,6 +43,7 @@ class PortfolioOperation:
     op_date: str
     op_currency: str
     op_payment: Decimal
+    op_ticker: str
 
 
 def get_portfolio_cash_rub():
@@ -106,6 +109,9 @@ def creating_positions_objects():
 
     my_positions = list()
     for this_pos in positions.payload.positions:
+        # type (stock, bond, etf or currency)
+        position_type = data_parser.get_position_type(this_pos.figi).value
+
         if this_pos.average_position_price.value > 0:
             # market cost (total for each position)
             market_cost = this_pos.expected_yield.value + (this_pos.average_position_price.value * this_pos.balance)
@@ -152,12 +158,13 @@ def creating_positions_objects():
             logger.warning(this_pos.name + ' - not enough data!')
 
         my_positions.append(PortfolioPosition(this_pos.figi, this_pos.name, this_pos.ticker, this_pos.balance,
-                                              this_pos.average_position_price.currency,
+                                              position_type, this_pos.average_position_price.currency,
                                               this_pos.average_position_price.value, sum_buy,
                                               this_pos.expected_yield.value,
                                               market_price, percent_change, market_cost, market_value_rub,
                                               market_cost_rub_cb, ave_buy_price_rub, sum_buy_rub, tax_base, exp_tax))
 
+    my_positions.sort(key=operator.attrgetter('name'))
     logger.info('..positions are ready')
     return my_positions
 
@@ -199,10 +206,16 @@ def create_operations_objects():
     logger.info('creating operations objects..')
     my_operations = list()
     for this_op in operations.payload.operations:
+        if this_op.figi != None:
+            # ticker = data_parser.get_thicker_by_figi(this_op.figi)
+            ticker = "None"
+        else:
+            ticker = "None"
         my_operations.append(PortfolioOperation(this_op.operation_type,
                                                 this_op.date,
                                                 this_op.currency,
-                                                this_op.payment))
+                                                this_op.payment,
+                                                ticker))
 
     logger.info('..operations are ready')
     return my_operations
