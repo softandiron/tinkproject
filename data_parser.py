@@ -47,7 +47,7 @@ def loop_dates(logger=logging.getLogger()):
     day_rates = {}
 
     logger.info('downloading CB rates from saved Database..')
-    with open('data.csv', 'r') as file:
+    with open('rates_by_date.csv', 'r') as file:
         reader = csv.reader(file)
         # creating a dictionary from csv:
         for row in reader:
@@ -73,10 +73,10 @@ def loop_dates(logger=logging.getLogger()):
 
         # updating the csv file for the future:
         logger.info('updating Database..')
-        with open('data.csv', 'w', newline='') as file:
+        with open('rates_by_date.csv', 'w', newline='') as file:
             writer = csv.writer(file)
             for date in day_rates.keys():
-                writer.writerow([date, usd, eur, rub])
+                writer.writerow([date, day_rates[date]['USD'], day_rates[date]['EUR'], day_rates[date]['RUB']])
 
         rates = get_exchange_rate(account_data['now_date'])
         # add the today day
@@ -109,7 +109,7 @@ def get_api_data(logger=logging.getLogger()):
     logger.info("authorisation success")
     positions = client.get_portfolio()
     operations = client.get_operations(from_=account_data['start_date'], to=account_data['now_date'])
-    course_usd = client.get_market_orderbook(figi='BBG0013HGFT4', depth=20)
+    course_usd = client.get_market_orderbook(figi='BBG0013HGFT4', depth=20) # check this!!!
     course_eur = client.get_market_orderbook(figi='BBG0013HJJ31', depth=20)
     currencies = client.get_portfolio_currencies()
     logger.info("portfolio received")
@@ -125,5 +125,13 @@ def get_current_market_price(figi):
     book = client.get_market_orderbook(figi=figi, depth=20)
     price = book.payload.last_price
     return price
+
+
+def get_position_type(figi):
+    client = tinvest.SyncClient(account_data['my_token'])
+    position_data = client.get_market_search_by_figi(figi)
+    type = position_data.payload.type
+    return type
+
 
 account_data = parse_text_file()
