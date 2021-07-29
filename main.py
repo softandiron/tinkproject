@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 import operator
 
+import xirr
+
 import data_parser
 from excel_builder import build_excel_file, supported_currencies
 
@@ -240,6 +242,34 @@ def calculate_operations_sums_rub(current_op_type):
     return sum(op_list)
 
 
+def calculate_xirr(operations, portfolio_value):
+    dates_values = {}
+    for op in operations:
+        if (op.op_type == 'PayIn' or op.op_type == 'PayOut') and op.op_payment != 0:
+            if op.op_currency in supported_currencies:
+                date = datetime.date(op.op_date)
+                rate = rates_CB[date]
+                dates_values[op.op_date] = -(op.op_payment * rate[op.op_currency])  # reverting the sign
+            else:
+                logger.warning(f'Unsupported currency: {op.op_currency}')
+
+    dates_values_sorted = {}
+    for date in sorted(dates_values.keys()):
+        dates_values_sorted[date] = int(dates_values[date])
+
+    dates_values_composed = {}
+    for date in dates_values_sorted.keys():
+        if datetime.date(date) not in dates_values_composed.keys():
+            dates_values_composed[datetime.date(date)] = dates_values_sorted[date]
+        else:
+            dates_values_composed[datetime.date(date)] += dates_values_sorted[date]
+
+    dates_values_composed[datetime.date(data_parser.account_data['now_date'])] = int(portfolio_value)
+
+    x = round((xirr.xirr(dates_values_composed) * 100), 2)
+    return x
+
+
 if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(asctime)s - %(message)s', datefmt='%H:%M:%S')
@@ -273,6 +303,8 @@ if __name__ == '__main__':
 
     my_operations = create_operations_objects()
 
+    xirr_value = calculate_xirr(my_operations, (portfolio_cost_rub_market - sum_profile['exp_tax']))
+
     for operation in ['PayIn', 'PayOut', 'Buy', 'BuyCard', 'Sell', 'Coupon', 'Dividend', 'Tax', 'TaxCoupon',
                       'TaxDividend', 'BrokerCommission', 'ServiceCommission']:
         logger.info(f'calculating {operation} operations sum in RUB..')
@@ -286,6 +318,6 @@ if __name__ == '__main__':
     # EXCEL
     build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_today,
                      average_percent, portfolio_cost_rub_market, sum_profile,
-                     investing_period_str, cash_rub, payin_payout, logger)
+                     investing_period_str, cash_rub, payin_payout, xirr_value, logger)
 
     logger.info(f'done in {time.time() - start_time:.2f} seconds')
