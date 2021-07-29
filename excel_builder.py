@@ -17,7 +17,7 @@ def get_color(num):
 
 def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_today,
                      average_percent, portfolio_cost_rub_market, sum_profile,
-                     investing_period_str, cash_rub, payin_payout, logger=logging.getLogger()):
+                     investing_period_str, cash_rub, payin_payout, xirr_value, logger=logging.getLogger()):
 
     logger.info('creating excel file..')
     excel_file_name = 'tinkoffReport_' + data_parser.account_data['now_date'].strftime('%Y.%b.%d') + '.xlsx'
@@ -314,6 +314,9 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
         # Profit (clean portfolio - (PayIn - PayOut))
         worksheet_port.write(s_row + 8, s_col, 'Profit', cell_format['bold_right'])
         worksheet_port.write(s_row + 8, s_col + 1, clean_portfolio - payin_payout, cell_format['RUB'])
+        # XIRR value (the irregular internal rate of return)
+        worksheet_port.write(s_row + 10, s_col, 'XIRR', cell_format['bold_right'])
+        worksheet_port.write(s_row + 10, s_col + 1, str(xirr_value) + " %", cell_format['bold_right'])
 
     last_row_pos = print_portfolio(1, 1)
     print_operations(1, 2)
