@@ -10,8 +10,7 @@ from datetime import datetime
 from dataclasses import dataclass
 from decimal import Decimal
 import operator
-
-import xirr
+import scipy.optimize
 
 import data_parser
 from excel_builder import build_excel_file, supported_currencies
@@ -115,11 +114,17 @@ def creating_positions_objects():
         position_type = data_parser.get_position_type(this_pos.figi).value
 
         if this_pos.average_position_price.value > 0:
-            # market cost (total for each position)
-            market_cost = this_pos.expected_yield.value + (this_pos.average_position_price.value * this_pos.balance)
-
-            # current market prise for 1 item
-            market_price = market_cost / this_pos.balance
+            if position_type == "Bond":
+                # market cost (total for each position)
+                market_cost = round((this_pos.expected_yield.value + (this_pos.average_position_price.value *
+                                                                      this_pos.balance)), 2)
+                # current market prise for 1 item
+                market_price = round((market_cost / this_pos.balance), 2)
+            else:
+                # current market prise for 1 item
+                market_price = data_parser.get_current_market_price(this_pos.figi)
+                # market cost (total for each position)
+                market_cost = market_price * this_pos.balance
 
             # % change
             percent_change = ((market_price / this_pos.average_position_price.value) * 100) - 100
@@ -242,7 +247,45 @@ def calculate_operations_sums_rub(current_op_type):
     return sum(op_list)
 
 
+def xnpv(valuesPerDate, rate):
+    # Calculate the irregular net present value.
+    days_per_year = 365.0
+
+    if rate == -1.0:
+        return float('inf')
+
+    t0 = min(valuesPerDate.keys())
+
+    if rate <= -1.0:
+        return sum([-abs(vi) / (-1.0 - rate)**((ti - t0).days / days_per_year) for ti, vi in valuesPerDate.items()])
+
+    return sum([vi / (1.0 + rate)**((ti - t0).days / days_per_year) for ti, vi in valuesPerDate.items()])
+
+
+def xirr(valuesPerDate):
+    # Calculate the irregular internal rate of return
+    if not valuesPerDate:
+        return None
+
+    if all(v >= 0 for v in valuesPerDate.values()):
+        return float("inf")
+    if all(v <= 0 for v in valuesPerDate.values()):
+        return -float("inf")
+
+    result = None
+    try:
+        result = scipy.optimize.newton(lambda r: xnpv(valuesPerDate, r), 0)
+    except (RuntimeError, OverflowError):    # Failed to converge?
+        result = scipy.optimize.brentq(lambda r: xnpv(valuesPerDate, r), -0.999999999999999, 1e20, maxiter=10**6)
+
+    if not isinstance(result, complex):
+        return result
+    else:
+        return None
+
+
 def calculate_xirr(operations, portfolio_value):
+    logger.info('calculating XIRR..')
     dates_values = {}
     for op in operations:
         if (op.op_type == 'PayIn' or op.op_type == 'PayOut') and op.op_payment != 0:
@@ -266,7 +309,7 @@ def calculate_xirr(operations, portfolio_value):
 
     dates_values_composed[datetime.date(data_parser.account_data['now_date'])] = int(portfolio_value)
 
-    x = round((xirr.xirr(dates_values_composed) * 100), 2)
+    x = round((xirr(dates_values_composed) * 100), 2)
     return x
 
 
