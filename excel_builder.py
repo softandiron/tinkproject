@@ -17,7 +17,7 @@ def get_color(num):
 
 def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_today,
                      average_percent, portfolio_cost_rub_market, sum_profile,
-                     investing_period_str, cash_rub, payin_payout, xirr_value, logger=logging.getLogger()):
+                     investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate, logger=logging.getLogger()):
 
     logger.info('creating excel file..')
     excel_file_name = 'tinkoffReport_' + data_parser.account_data['now_date'].strftime('%Y.%b.%d') + '.xlsx'
@@ -140,7 +140,7 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
             worksheet_port.write(row, col, 'Рубль деревянный кэшем', cell_format['left'])
             for shift in [2, 10, 12]:
                 worksheet_port.write(row, col + shift, cash_rub, cell_format['RUB'])
-            for shift in set(range(1, 16)) - {2, 10, 11, 12}:
+            for shift in set(range(1, 17)) - {2, 10, 11, 12}:
                 worksheet_port.write(row, col + shift, '-', cell_format['center'])
             row += 1
 
@@ -155,8 +155,17 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
             worksheet_port.write(row + 1, col + 8, average_percent, cell_format['perc'])
 
             worksheet_port.write(row + 1, col + 12, sum_profile['portfolio_value_rub_cb'], cell_format['RUB'])
+
             worksheet_port.write(row + 1, col + 14, sum_profile['pos_ave_buy_rub'], cell_format['RUB'])
-            worksheet_port.write(row + 1, col + 16, sum_profile['exp_tax'], cell_format['RUB'])
+            worksheet_port.write(row + 2, col + 14, 'profit:', cell_format['bold_right'])
+            worksheet_port.write(row + 3, col + 14, 'loss:', cell_format['bold_right'])
+
+            worksheet_port.write(row + 2, col + 15, sum_profile['profit'], cell_format['RUB'])
+            worksheet_port.write(row + 3, col + 15, sum_profile['loss'], cell_format['RUB'])
+
+            worksheet_port.write(row + 2, col + 16, sum_profile['profit_tax'], cell_format['RUB'])
+            worksheet_port.write(row + 3, col + 16, sum_profile['loss_tax'], cell_format['RUB'])
+            worksheet_port.write(row + 4, col + 16, sum_profile['exp_tax'], cell_format['RUB'])
 
             return row + 1
 

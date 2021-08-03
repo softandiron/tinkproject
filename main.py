@@ -146,7 +146,7 @@ def creating_positions_objects():
             ave_buy_price_rub = calculate_ave_buy_price_rub(this_pos)
             sum_buy_rub = ave_buy_price_rub * this_pos.balance
 
-            tax_base = Decimal(max(0, market_cost_rub_cb - sum_buy_rub))
+            tax_base = market_cost_rub_cb - sum_buy_rub
             exp_tax = tax_base * Decimal(tax_rate / 100)
 
             logger.info(this_pos.name)
@@ -205,8 +205,32 @@ def calculate_sum_pos_ave_buy_rub():
     return sum(pos.sum_buy_rub for pos in my_positions)
 
 
+def calculate_profit_sum():
+    list = []
+    for pos in my_positions:
+        if pos.tax_base > 0:
+            list.append(pos.tax_base)
+    return sum(list)
+
+
+def calculate_profit_tax():
+    return round(sum_profile['profit'] * Decimal(tax_rate / 100), 2)
+
+
+def calculate_loss_tax():
+    return round(sum_profile['loss'] * Decimal(tax_rate / 100), 2)
+
+
+def calculate_loss_sum():
+    list = []
+    for pos in my_positions:
+        if pos.tax_base < 0:
+            list.append(pos.tax_base)
+    return sum(list)
+
+
 def calculate_sum_exp_tax():
-    return sum(pos.exp_tax for pos in my_positions)
+    return Decimal(max(0, sum(pos.exp_tax for pos in my_positions)))
 
 
 def create_operations_objects():
@@ -250,15 +274,12 @@ def calculate_operations_sums_rub(current_op_type):
 def xnpv(valuesPerDate, rate):
     # Calculate the irregular net present value.
     days_per_year = 365.0
-
     if rate == -1.0:
         return float('inf')
 
     t0 = min(valuesPerDate.keys())
-
     if rate <= -1.0:
         return sum([-abs(vi) / (-1.0 - rate)**((ti - t0).days / days_per_year) for ti, vi in valuesPerDate.items()])
-
     return sum([vi / (1.0 + rate)**((ti - t0).days / days_per_year) for ti, vi in valuesPerDate.items()])
 
 
@@ -266,18 +287,15 @@ def xirr(valuesPerDate):
     # Calculate the irregular internal rate of return
     if not valuesPerDate:
         return None
-
     if all(v >= 0 for v in valuesPerDate.values()):
         return float("inf")
     if all(v <= 0 for v in valuesPerDate.values()):
         return -float("inf")
-
     result = None
     try:
         result = scipy.optimize.newton(lambda r: xnpv(valuesPerDate, r), 0)
     except (RuntimeError, OverflowError):    # Failed to converge?
         result = scipy.optimize.brentq(lambda r: xnpv(valuesPerDate, r), -0.999999999999999, 1e20, maxiter=10**6)
-
     if not isinstance(result, complex):
         return result
     else:
@@ -343,6 +361,10 @@ if __name__ == '__main__':
     sum_profile['portfolio_value_rub_cb'] = calculate_cb_value_rub_sum()
     sum_profile['pos_ave_buy_rub'] = calculate_sum_pos_ave_buy_rub()
     sum_profile['exp_tax'] = calculate_sum_exp_tax()
+    sum_profile['profit'] = calculate_profit_sum()
+    sum_profile['loss'] = calculate_loss_sum()
+    sum_profile['profit_tax'] = calculate_profit_tax()
+    sum_profile['loss_tax'] = calculate_loss_tax()
 
     my_operations = create_operations_objects()
 
@@ -361,6 +383,6 @@ if __name__ == '__main__':
     # EXCEL
     build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_today,
                      average_percent, portfolio_cost_rub_market, sum_profile,
-                     investing_period_str, cash_rub, payin_payout, xirr_value, logger)
+                     investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate, logger)
 
     logger.info(f'done in {time.time() - start_time:.2f} seconds')
