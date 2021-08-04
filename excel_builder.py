@@ -24,6 +24,7 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
     workbook = xlsxwriter.Workbook(excel_file_name)
     worksheet_port = workbook.add_worksheet("Portfolio")
     worksheet_ops = workbook.add_worksheet("Operations")
+    worksheet_divs = workbook.add_worksheet("Coupons and Dividends")
 
     # styles
     cell_format = {}
@@ -35,6 +36,12 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
     cell_format['USD'] = workbook.add_format({'num_format': '## ### ##0.00   [$$-409]', 'align': 'right'})
     cell_format['RUB'] = workbook.add_format({'num_format': '## ### ##0.00   [$₽-ru-RU]', 'align': 'right'})
     cell_format['EUR'] = workbook.add_format({'num_format': '## ### ##0.00   [$€-x-euro1]', 'align': 'right'})
+    merge_format = {}
+    merge_format['bold_center'] = workbook.add_format({'align': 'center', 'valign': 'vcenter', 'bold': True})
+    merge_format['bold_right'] = workbook.add_format({'align': 'right', 'valign': 'vcenter', 'bold': True})
+    merge_format['bold_left'] = workbook.add_format({'align': 'left', 'valign': 'vcenter', 'bold': True})
+    merge_format['left'] = workbook.add_format({'align': 'left', 'valign': 'vcenter', 'bold': False})
+    merge_format['left_small'] = workbook.add_format({'align': 'left', 'valign': 'vcenter', 'bold': False, 'font_size': '9'})
 
     worksheet_port.set_column('A:A', 16)
     worksheet_port.write(0, 0, data_parser.account_data['now_date'].strftime('%Y %b %d  %H:%M'), cell_format['bold_center'])
@@ -327,9 +334,86 @@ def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_to
         worksheet_port.write(s_row + 10, s_col, 'XIRR', cell_format['bold_right'])
         worksheet_port.write(s_row + 10, s_col + 1, str(xirr_value) + " %", cell_format['bold_right'])
 
+    def print_dividends_and_coupons():
+        logger.info('printing dividends and coupons statistics..')
+
+        # tax included
+        worksheet_divs.merge_range(4, 1, 4, 5,
+                                   '* - Налог удержан эмитентом. Самостоятельно доплачиваемые 3%'
+                                   ' в таблице не учитываются', merge_format['left_small'])
+        start_col = 1
+        start_row = 6
+        years = []
+        for operation in my_operations:
+            if operation.op_type == 'Coupon' or operation.op_type == 'Dividend':
+                if operation.op_date.strftime('%Y') not in years:
+                    years.append(operation.op_date.strftime('%Y'))
+
+        operations_in_last_12_months = []  # needed for dividend salary
+
+        for year in years:
+            # header 1 - year
+            worksheet_divs.merge_range(start_row, start_col, start_row, start_col + 4, year, merge_format['bold_center'])
+            # header 2 - labels
+            worksheet_divs.set_column(start_col, start_col + 4, 14, cell_format['right'])
+            start_row += 1
+            worksheet_divs.write(start_row, start_col, 'Ticker', cell_format['bold_center'])
+            worksheet_divs.write(start_row, start_col + 1, 'Date', cell_format['bold_center'])
+            worksheet_divs.write(start_row, start_col + 2, 'Value', cell_format['bold_center'])
+            worksheet_divs.write(start_row, start_col + 3, 'Tax', cell_format['bold_center'])
+            worksheet_divs.write(start_row, start_col + 4, 'Value RUB', cell_format['bold_center'])
+            start_row += 1
+
+            # content
+            operations_per_year = []
+            for operation in my_operations:
+                if operation.op_type == 'Coupon' or operation.op_type == 'Dividend':
+                    if operation.op_date.strftime('%Y') == year:
+                        # print ticker
+                        worksheet_divs.write(start_row, start_col, operation.op_ticker,cell_format['left'])
+                        # print date
+                        worksheet_divs.write(start_row, start_col + 1, operation.op_date.strftime('%Y %b %d'), cell_format['center'])
+                        # print value
+                        if operation.op_currency in supported_currencies:
+                            worksheet_divs.write(start_row, start_col + 2, operation.op_payment, cell_format[operation.op_currency])
+                        else:
+                            worksheet_divs.write(start_row, start_col + 2, 'unknown currency', cell_format['right'])
+                        # print tax
+                        tax_payment = 0
+                        for tax_op in my_operations:
+                            if (tax_op.op_type == 'TaxCoupon' or tax_op.op_type == 'TaxDividend'):
+                                if tax_op.op_ticker == operation.op_ticker and tax_op.op_date.strftime('%Y %b %d') == \
+                                        operation.op_date.strftime('%Y %b %d'):
+                                    tax_payment = tax_op.op_payment
+                                    worksheet_divs.write(start_row, start_col + 3, tax_payment,
+                                                         cell_format[tax_op.op_currency])
+                        if tax_payment == 0:
+                            worksheet_divs.write(start_row, start_col + 3, '*', cell_format['right'])
+
+                        # print value RUB
+                        worksheet_divs.write(start_row, start_col + 4, operation.op_payment_rub - abs(tax_payment),
+                                             cell_format['RUB'])
+
+                        operations_per_year.append(operation.op_payment_rub - abs(tax_payment))
+                        if operation.op_in_last_12_months == True:
+                            operations_in_last_12_months.append(operation.op_payment_rub - abs(tax_payment))
+                        start_row += 1
+            # print sum
+            worksheet_divs.write(start_row + 1, start_col + 4, sum(operations_per_year), cell_format['RUB'])
+            start_col += 6
+            start_row = 6
+
+        # dividend salary
+        start_col = 1
+        start_row = 2
+        worksheet_divs.merge_range(start_row, start_col, start_row, start_col + 2,
+                                   'average monthly salary for the last 12 months:', merge_format['bold_right'])
+        worksheet_divs.write(start_row, start_col + 3, round(sum(operations_in_last_12_months) / 12, 2), cell_format['RUB'])
+
     last_row_pos = print_portfolio(1, 1)
     print_operations(1, 2)
     print_statistics(last_row_pos + 3, 1)
+    print_dividends_and_coupons()
 
     # finish Excel
     logger.info('Excel file composed! With name: '+excel_file_name)

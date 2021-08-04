@@ -6,7 +6,7 @@
 import logging
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from dataclasses import dataclass
 from decimal import Decimal
 import operator
@@ -45,6 +45,9 @@ class PortfolioOperation:
     op_currency: str
     op_payment: Decimal
     op_ticker: str
+    op_payment_rub: Decimal
+    op_figi: str
+    op_in_last_12_months: bool
 
 
 def get_portfolio_cash_rub():
@@ -238,6 +241,9 @@ def create_operations_objects():
     my_operations = list()
     instruments_dictionary = {}
     for this_op in operations.payload.operations:
+        date = datetime.date(this_op.date)
+        rate_for_date = rates_CB[date]
+        # ticker
         if this_op.figi != None:
             if this_op.figi not in instruments_dictionary:
                 instrument = data_parser.get_instrument_by_figi(this_op.figi)
@@ -248,11 +254,25 @@ def create_operations_objects():
         else:
             ticker = "None"
 
+        # payment_RUB
+        if this_op.currency in supported_currencies:
+            payment_rub = this_op.payment * rate_for_date[this_op.currency]
+        else:
+            logger.warning('unknown currency in position: ' + this_op.name)
+            payment_rub = 0
+
+        # is it in last 12 months?
+        in_last_365_days = False
+        if datetime.date(this_op.date) > (today_date - timedelta(365)):
+            in_last_365_days = True
+
         my_operations.append(PortfolioOperation(this_op.operation_type,
                                                 this_op.date,
                                                 this_op.currency,
                                                 this_op.payment,
-                                                ticker))
+                                                ticker, payment_rub,
+                                                this_op.figi,
+                                                in_last_365_days))
 
     logger.info('..operations are ready')
     return my_operations
