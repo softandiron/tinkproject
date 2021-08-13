@@ -15,12 +15,12 @@ def get_color(num):
     return 'black'
 
 
-def build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_today,
+def build_excel_file(account, my_positions, my_operations, rates_today_cb, market_rate_today,
                      average_percent, portfolio_cost_rub_market, sum_profile,
                      investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate, logger=logging.getLogger()):
 
     logger.info('creating excel file..')
-    excel_file_name = 'tinkoffReport_' + data_parser.account_data['now_date'].strftime('%Y.%b.%d') + '.xlsx'
+    excel_file_name = 'tinkoffReport_' + account.broker_account_id + data_parser.account_data['now_date'].strftime('%Y.%b.%d') + '.xlsx'
     workbook = xlsxwriter.Workbook(excel_file_name)
     worksheet_port = workbook.add_worksheet("Portfolio")
     worksheet_ops = workbook.add_worksheet("Operations")

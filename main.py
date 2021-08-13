@@ -364,47 +364,52 @@ if __name__ == '__main__':
     tax_rate = 13  # percents
     logger.info('Start')
 
-    # from data_parser
-    positions, operations, market_rate_today, currencies = data_parser.get_api_data(logger)
-    account_data = data_parser.parse_text_file(logger)
-    today_date = datetime.date(account_data['now_date'])
-    investing_period = data_parser.calc_investing_period(logger)
-    investing_period_str = f'{investing_period.years}y {investing_period.months}m {investing_period.days}d'
-    rates_CB = data_parser.loop_dates(logger)
-    rates_today_cb = rates_CB[today_date]
+    # get accounts
+    accounts = data_parser.get_accounts(logger)
+    for account in accounts.payload.accounts:
+        logger.info(account)
 
-    # from main
-    cash_rub = get_portfolio_cash_rub()
-    my_positions = creating_positions_objects()
-    average_percent = get_average_percent()
-    portfolio_cost_rub_market = get_portfolio_cost_rub_market()
+        # from data_parser
+        positions, operations, market_rate_today, currencies = data_parser.get_api_data(account.broker_account_id, logger)
+        account_data = data_parser.parse_text_file(logger)
+        today_date = datetime.date(account_data['now_date'])
+        investing_period = data_parser.calc_investing_period(logger)
+        investing_period_str = f'{investing_period.years}y {investing_period.months}m {investing_period.days}d'
+        rates_CB = data_parser.loop_dates(logger)
+        rates_today_cb = rates_CB[today_date]
 
-    sum_profile = {}
-    sum_profile['portfolio_value_rub_cb'] = calculate_cb_value_rub_sum()
-    sum_profile['pos_ave_buy_rub'] = calculate_sum_pos_ave_buy_rub()
-    sum_profile['exp_tax'] = calculate_sum_exp_tax()
-    sum_profile['profit'] = calculate_profit_sum()
-    sum_profile['loss'] = calculate_loss_sum()
-    sum_profile['profit_tax'] = calculate_profit_tax()
-    sum_profile['loss_tax'] = calculate_loss_tax()
+        # from main
+        cash_rub = get_portfolio_cash_rub()
+        my_positions = creating_positions_objects()
+        average_percent = get_average_percent()
+        portfolio_cost_rub_market = get_portfolio_cost_rub_market()
 
-    my_operations = create_operations_objects()
+        sum_profile = {}
+        sum_profile['portfolio_value_rub_cb'] = calculate_cb_value_rub_sum()
+        sum_profile['pos_ave_buy_rub'] = calculate_sum_pos_ave_buy_rub()
+        sum_profile['exp_tax'] = calculate_sum_exp_tax()
+        sum_profile['profit'] = calculate_profit_sum()
+        sum_profile['loss'] = calculate_loss_sum()
+        sum_profile['profit_tax'] = calculate_profit_tax()
+        sum_profile['loss_tax'] = calculate_loss_tax()
 
-    xirr_value = calculate_xirr(my_operations, (portfolio_cost_rub_market - sum_profile['exp_tax']))
+        my_operations = create_operations_objects()
 
-    for operation in ['PayIn', 'PayOut', 'Buy', 'BuyCard', 'Sell', 'Coupon', 'Dividend', 'Tax', 'TaxCoupon',
-                      'TaxDividend', 'BrokerCommission', 'ServiceCommission']:
-        logger.info(f'calculating {operation} operations sum in RUB..')
-        sum_profile[operation.lower()] = calculate_operations_sums_rub(operation)
+        xirr_value = calculate_xirr(my_operations, (portfolio_cost_rub_market - sum_profile['exp_tax']))
 
-    logger.info('preparing statistics')
+        for operation in ['PayIn', 'PayOut', 'Buy', 'BuyCard', 'Sell', 'Coupon', 'Dividend', 'Tax', 'TaxCoupon',
+                          'TaxDividend', 'BrokerCommission', 'ServiceCommission']:
+            logger.info(f'calculating {operation} operations sum in RUB..')
+            sum_profile[operation.lower()] = calculate_operations_sums_rub(operation)
 
-    # PayIn - PayOut
-    payin_payout = sum_profile['payin'] - abs(sum_profile['payout'])
+        logger.info('preparing statistics')
 
-    # EXCEL
-    build_excel_file(my_positions, my_operations, rates_today_cb, market_rate_today,
-                     average_percent, portfolio_cost_rub_market, sum_profile,
-                     investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate, logger)
+        # PayIn - PayOut
+        payin_payout = sum_profile['payin'] - abs(sum_profile['payout'])
+
+        # EXCEL
+        build_excel_file(account, my_positions, my_operations, rates_today_cb, market_rate_today,
+                         average_percent, portfolio_cost_rub_market, sum_profile,
+                         investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate, logger)
 
     logger.info(f'done in {time.time() - start_time:.2f} seconds')
