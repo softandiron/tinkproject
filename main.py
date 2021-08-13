@@ -357,6 +357,8 @@ if __name__ == '__main__':
     logger = logging.getLogger()
     if sys.argv[-1] in ['-q', '--quiet']:
         logger.setLevel(logging.WARNING)
+    elif sys.argv[-1] in ['-d', '--debug']:
+        logger.setLevel(logging.DEBUG)
 
     start_time = time.time()
     tax_rate = 13  # percents
