@@ -20,7 +20,8 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                      investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate, logger=logging.getLogger()):
 
     logger.info('creating excel file..')
-    excel_file_name = 'tinkoffReport_' + account.broker_account_id + data_parser.account_data['now_date'].strftime('%Y.%b.%d') + '.xlsx'
+    excel_file_name = 'tinkoffReport_' + data_parser.account_data['now_date'].strftime('%Y.%b.%d') + '_'\
+                      + account.broker_account_id + '.xlsx'
     workbook = xlsxwriter.Workbook(excel_file_name)
     worksheet_port = workbook.add_worksheet("Portfolio")
     worksheet_ops = workbook.add_worksheet("Operations")
@@ -540,7 +541,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                                    merge_format['left'])
         n += 4
         worksheet_port.merge_range(s_row + n, s_col + 1, s_row + n, s_col + 16,
-                                   ' Разработанно @softandiron и контрибьюторами. Версия v2.x, 2021 год.',
+                                   ' Разработано @softandiron и контрибьюторами. Версия v2.x, 2021 год.',
                                    merge_format['left'])
         n += 1
         worksheet_port.merge_range(s_row + n, s_col + 1, s_row + n, s_col + 16,
