@@ -90,13 +90,13 @@ def loop_dates(logger=logging.getLogger()):
 
 def parse_text_file(logger=logging.getLogger()):
     logger.info('getting account data..')
-    token_file = open(file='my_account.txt')
-    my_token = token_file.readline().rstrip('\n')
-    my_timezone = timezone(token_file.readline().rstrip('\n'))
-    start_year = token_file.readline().rstrip('\n')
-    start_month = token_file.readline().rstrip('\n')
-    start_day = token_file.readline().rstrip('\n')
-    token_file.close()
+    with open(file='my_account.txt') as token_file:
+        my_token = token_file.readline().rstrip('\n')
+        my_timezone = timezone(token_file.readline().rstrip('\n'))
+        start_year = token_file.readline().rstrip('\n')
+        start_month = token_file.readline().rstrip('\n')
+        start_day = token_file.readline().rstrip('\n')
+
     now_date = datetime.now()
     start_date = datetime(int(start_year), int(start_month), int(start_day), 0, 0, 0, tzinfo=my_timezone)
     logger.info('account started: ' + start_date.strftime('%Y %b %d '))
