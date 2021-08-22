@@ -66,7 +66,7 @@ def calculate_ave_buy_price_rub(this_pos):
         rate_for_date = rates_CB[date]
 
         if ops.figi == this_pos.figi and ops.payment != 0:
-            if ops.operation_type == 'Buy':
+            if ops.operation_type == 'Buy' or ops.operation_type == 'BuyCard':
                 if ops.currency in supported_currencies:
                     # price for 1 item
                     item = (ops.payment / ops.quantity_executed) * rate_for_date[ops.currency]
