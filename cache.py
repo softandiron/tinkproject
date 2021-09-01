@@ -7,7 +7,7 @@ cache_file_name = "asset_cache.txt"
 cache_data = {}  # хранилище данных кэша
 cache_data['cache_file_name'] = cache_file_name
 cache_logger = logging.getLogger("cache")
-cache_logger.setLevel(logging.DEBUG)
+cache_logger.setLevel(logging.INFO)
 
 
 def get_from_cache(key, max_request_age=86400):
