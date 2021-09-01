@@ -15,6 +15,8 @@ from pycbrf.toolbox import ExchangeRates
 
 import csv
 
+import cache
+
 # creating ruble 1:1 exchange rate for cleaner iterating over currencies
 ruble = ExchangeRate(code='RUB', value=Decimal(1), rate=Decimal(1), name='Рубль', id='KOSTYL', num='KOSTYL',
                      par=Decimal(1))
@@ -128,23 +130,38 @@ def get_api_data(broker_account_id, logger=logging.getLogger()):
 
 
 def get_current_market_price(figi):
-    client = tinvest.SyncClient(account_data['my_token'])
-    book = client.get_market_orderbook(figi=figi, depth=20)
-    price = book.payload.last_price
+    cache_timeout = 60*10  # 10 minutes in seconds
+    cache_key = f"{figi}-current_market_price"
+    price = cache.get_from_cache(cache_key, cache_timeout)
+    if not price:
+        client = tinvest.SyncClient(account_data['my_token'])
+        book = client.get_market_orderbook(figi=figi, depth=20)
+        price = book.payload.last_price
+        cache.put_to_cache(cache_key, price, cache_timeout)
     return price
 
 
 def get_position_type(figi):
-    client = tinvest.SyncClient(account_data['my_token'])
-    position_data = client.get_market_search_by_figi(figi)
-    type = position_data.payload.type
+    cache_timeout = 60*60*24*7  # 1 week in seconds
+    cache_key = f"{figi}-type"
+    type = cache.get_from_cache(cache_key, cache_timeout)
+    if not type:
+        client = tinvest.SyncClient(account_data['my_token'])
+        position_data = client.get_market_search_by_figi(figi)
+        type = position_data.payload.type
+        cache.put_to_cache(cache_key, type, cache_timeout)
     return type
 
 
 def get_instrument_by_figi(figi):
-    client = tinvest.SyncClient(account_data['my_token'])
-    instrument = client.get_market_search_by_figi(figi)
-    return  instrument
+    cache_timeout = 60*60*24*7  # 1 week in seconds
+    cache_key = f"{figi}-instrument"
+    instrument = cache.get_from_cache(cache_key, cache_timeout)
+    if not instrument:
+        client = tinvest.SyncClient(account_data['my_token'])
+        instrument = client.get_market_search_by_figi(figi)
+        cache.put_to_cache(cache_key, instrument, cache_timeout)
+    return instrument
 
 
 account_data = parse_text_file()
