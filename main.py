@@ -13,7 +13,7 @@ import operator
 import scipy.optimize
 
 import data_parser
-from excel_builder import build_excel_file, supported_currencies
+from excel_builder import build_excel_file, supported_currencies, assets_types
 
 
 @dataclass
@@ -236,6 +236,49 @@ def calculate_sum_exp_tax():
     return Decimal(max(0, sum(pos.exp_tax for pos in my_positions)))
 
 
+def calculate_parts():
+    logger.info('calculating parts')
+    parts = {"totalValue": 0}
+    for pos in my_positions:
+        currency = pos.currency
+        value = pos.market_cost
+        if pos.position_type == "Currency":
+            value = pos.balance
+            if pos.ticker == "USD000UTSTOM":
+                currency = "USD"
+            elif pos.ticker == "EUR_RUB__TOM":
+                currency = "EUR"
+
+        if currency not in parts.keys():
+            parts[currency] = {'value': 0,
+                               'valueRub': 0}
+        if pos.position_type not in parts[currency].keys():
+            parts[currency][pos.position_type] = {'value': 0,
+                                                  'valueRub': 0}
+        if pos.position_type not in parts.keys():
+            parts[pos.position_type] = {'valueRub': 0}
+        parts[currency][pos.position_type]['value'] += value
+        parts[currency][pos.position_type]['valueRub'] += pos.market_cost_rub_cb
+        parts[currency]['value'] += value
+        parts[currency]['valueRub'] += pos.market_cost_rub_cb
+        parts['totalValue'] += pos.market_cost_rub_cb
+        parts[pos.position_type]['valueRub'] += pos.market_cost_rub_cb
+    for currency in supported_currencies:
+        if currency not in parts.keys():
+            continue
+        data = parts[currency]
+        for type in assets_types:
+            if type in parts.keys():
+                parts[type]['totalPart'] = parts[type]['valueRub']/parts['totalValue']
+            if type not in data.keys():
+                continue
+            type_data = data[type]
+            type_data['currencyPart'] = type_data['value']/data['value']*100
+            type_data['totalPart'] = type_data['valueRub']/parts['totalValue']*100
+        data['totalPart'] = data['valueRub']/parts['totalValue']
+    return parts
+
+
 def create_operations_objects():
     logger.info('creating operations objects..')
     my_operations = list()
@@ -392,6 +435,7 @@ if __name__ == '__main__':
         sum_profile['loss'] = calculate_loss_sum()
         sum_profile['profit_tax'] = calculate_profit_tax()
         sum_profile['loss_tax'] = calculate_loss_tax()
+        sum_profile['parts'] = calculate_parts()
 
         my_operations = create_operations_objects()
 
@@ -411,5 +455,6 @@ if __name__ == '__main__':
         build_excel_file(account, my_positions, my_operations, rates_today_cb, market_rate_today,
                          average_percent, portfolio_cost_rub_market, sum_profile,
                          investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate, logger)
+        # exit()
 
     logger.info(f'done in {time.time() - start_time:.2f} seconds')

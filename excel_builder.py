@@ -5,6 +5,7 @@ import xlsxwriter
 import data_parser
 
 supported_currencies = ['RUB', 'USD', 'EUR']
+assets_types = ['Stock', 'Bond', 'Etf', 'Other', 'Currency']
 
 
 def get_color(num):
@@ -17,7 +18,8 @@ def get_color(num):
 
 def build_excel_file(account, my_positions, my_operations, rates_today_cb, market_rate_today,
                      average_percent, portfolio_cost_rub_market, sum_profile,
-                     investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate, logger=logging.getLogger()):
+                     investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate,
+                     logger=logging.getLogger()):
 
     logger.info('creating excel file..')
     excel_file_name = 'tinkoffReport_' + data_parser.account_data['now_date'].strftime('%Y.%b.%d') + '_'\
@@ -26,6 +28,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     worksheet_port = workbook.add_worksheet("Portfolio")
     worksheet_ops = workbook.add_worksheet("Operations")
     worksheet_divs = workbook.add_worksheet("Coupons and Dividends")
+    worksheet_parts = workbook.add_worksheet("Parts")
 
     # styles
     cell_format = {}
@@ -34,9 +37,18 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     cell_format['left'] = workbook.add_format({'align': 'left'})
     cell_format['bold_center'] = workbook.add_format({'align': 'center', 'bold': True})
     cell_format['bold_right'] = workbook.add_format({'align': 'right', 'bold': True})
-    cell_format['USD'] = workbook.add_format({'num_format': '## ### ##0.00   [$$-409]', 'align': 'right'})
-    cell_format['RUB'] = workbook.add_format({'num_format': '## ### ##0.00   [$₽-ru-RU]', 'align': 'right'})
-    cell_format['EUR'] = workbook.add_format({'num_format': '## ### ##0.00   [$€-x-euro1]', 'align': 'right'})
+    cell_format['USD'] = workbook.add_format({'num_format': '## ### ##0.00   [$$-409]',
+                                              'align': 'right'})
+    cell_format['RUB'] = workbook.add_format({'num_format': '## ### ##0.00   [$₽-ru-RU]',
+                                              'align': 'right'})
+    cell_format['EUR'] = workbook.add_format({'num_format': '## ### ##0.00   [$€-x-euro1]',
+                                              'align': 'right'})
+    cell_format['USD-bold'] = workbook.add_format({'num_format': '## ### ##0.00   [$$-409]',
+                                                   'align': 'right', 'bold': True})
+    cell_format['RUB-bold'] = workbook.add_format({'num_format': '## ### ##0.00   [$₽-ru-RU]',
+                                                   'align': 'right', 'bold': True})
+    cell_format['EUR-bold'] = workbook.add_format({'num_format': '## ### ##0.00   [$€-x-euro1]',
+                                                   'align': 'right', 'bold': True})
     merge_format = {}
     merge_format['bold_center'] = workbook.add_format({'align': 'center', 'valign': 'vcenter', 'bold': True})
     merge_format['bold_right'] = workbook.add_format({'align': 'right', 'valign': 'vcenter', 'bold': True})
@@ -411,7 +423,79 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                                    'average monthly salary for the last 12 months:', merge_format['bold_right'])
         worksheet_divs.write(start_row, start_col + 3, round(sum(operations_in_last_12_months) / 12, 2), cell_format['RUB'])
 
-    def print_clarification(s_row, s_col ):
+    def print_parts():
+        logger.info('printing portfolio parts statistics...')
+
+        start_col = 1
+        start_row = 6
+
+        # header - labels
+        worksheet_parts.set_column(start_col+2, start_col + 3, 14, cell_format['right'])
+
+        worksheet_parts.write(start_row, start_col + 2, 'Value', cell_format['bold_center'])
+        worksheet_parts.write(start_row, start_col + 3, 'Value RUB', cell_format['bold_center'])
+        worksheet_parts.write(start_row, start_col + 4, 'Currency %', cell_format['bold_center'])
+        worksheet_parts.write(start_row, start_col + 5, 'Total %', cell_format['bold_center'])
+        start_row += 1
+        cell_format['perc'] = workbook.add_format({'num_format': '0.0  ',
+                                                   'font_color': get_color(5)})  # >0 for green
+        cell_format['perc-bold'] = workbook.add_format({'num_format': '0.0 %', 'bold': True,
+                                                        'font_color': get_color(5),  # >0 for green
+                                                        'align': 'center'})
+        for currency in supported_currencies:
+            if currency not in sum_profile['parts'].keys():
+                continue
+            data = sum_profile['parts'][currency]
+            worksheet_parts.write(start_row, start_col, currency, cell_format['bold_center'])
+            worksheet_parts.write(start_row+1, start_col, data['totalPart'], cell_format['perc-bold'])
+
+            for type in assets_types:
+                worksheet_parts.write(start_row, start_col + 1, type, cell_format['bold_center'])
+                if type not in data.keys():
+                    # start_row += 1 # Если печатать строки с отсутствующими типами активов
+                    continue
+                type_data = data[type]
+
+                worksheet_parts.write(start_row, start_col + 2, type_data['value'], cell_format[currency])
+                worksheet_parts.write(start_row, start_col + 3, type_data['valueRub'], cell_format['RUB'])
+                worksheet_parts.write(start_row, start_col + 4, type_data['currencyPart'], cell_format['perc'])
+                worksheet_parts.write(start_row, start_col + 5, type_data['totalPart'], cell_format['perc'])
+                start_row += 1
+
+            worksheet_parts.write(start_row, start_col + 2, data['value'], cell_format[currency+"-bold"])
+            worksheet_parts.write(start_row, start_col + 3, data['valueRub'], cell_format['RUB-bold'])
+            # worksheet_parts.write(start_row, start_col + 4, type_data['currencyPart'], cell_format['perc'])
+
+            start_row += 2  # пропуск между валютами
+
+        start_col += 8
+        start_row = 6
+        # Table 2 - headers
+        for i, type in enumerate(assets_types):
+            worksheet_parts.write(start_row, start_col + 1 + i, type, cell_format['bold_center'])
+        start_row += 1
+        for currency in supported_currencies:
+            if currency not in sum_profile['parts'].keys():
+                continue
+            data = sum_profile['parts'][currency]
+            worksheet_parts.write(start_row, start_col, currency, cell_format['bold_center'])
+
+            for i, type in enumerate(assets_types):
+                if type not in data.keys():
+                    continue
+                type_data = data[type]
+                worksheet_parts.write(start_row, start_col + 1 + i, type_data['totalPart'], cell_format['perc'])
+
+            worksheet_parts.write(start_row, start_col + 2 + i, data['totalPart'], cell_format['perc-bold'])
+            start_row += 1
+        # Итоговая строка
+        for i, type in enumerate(assets_types):
+            if type not in sum_profile['parts'].keys():
+                continue
+            type_data = sum_profile['parts'][type]
+            worksheet_parts.write(start_row, start_col + 1 + i, type_data['totalPart'], cell_format['perc-bold'])
+
+    def print_clarification(s_row, s_col):
         logger.info('printing clarification..')
         n = 0
         worksheet_port.write(s_row + n, s_col, 'name', cell_format['bold_right'])
@@ -554,6 +638,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     print_statistics(last_row_pos + 3, 1)
     print_clarification(last_row_pos + 18, 1)
     print_dividends_and_coupons()
+    print_parts()
 
     # finish Excel
     logger.info('Excel file composed! With name: '+excel_file_name)
