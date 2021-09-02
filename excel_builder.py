@@ -426,6 +426,14 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     def print_parts():
         logger.info('printing portfolio parts statistics...')
 
+        # Comments in header
+        worksheet_parts.merge_range(2, 1, 2, 6,
+                                    'Структура долей активов',
+                                    merge_format['bold_center'])
+        worksheet_parts.merge_range(4, 1, 4, 6,
+                                    '* - расчет по курсу ЦБ на текущую дату',
+                                    merge_format['left_small'])
+
         start_col = 1
         start_row = 6
 
