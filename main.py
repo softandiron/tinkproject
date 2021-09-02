@@ -238,7 +238,16 @@ def calculate_sum_exp_tax():
 
 def calculate_parts():
     logger.info('calculating parts')
-    parts = {"totalValue": 0}
+    parts = {'totalValue': cash_rub,
+             'RUB': {
+                 'Currency': {
+                    'value': cash_rub,
+                    'valueRub': cash_rub
+                    },
+                 'value': cash_rub,
+                 'valueRub': cash_rub
+                 },
+             }
     for pos in my_positions:
         currency = pos.currency
         value = pos.market_cost
@@ -455,6 +464,5 @@ if __name__ == '__main__':
         build_excel_file(account, my_positions, my_operations, rates_today_cb, market_rate_today,
                          average_percent, portfolio_cost_rub_market, sum_profile,
                          investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate, logger)
-        # exit()
 
     logger.info(f'done in {time.time() - start_time:.2f} seconds')
