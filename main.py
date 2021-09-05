@@ -63,7 +63,7 @@ def calculate_ave_buy_price_rub(this_pos):
     # for this position's figi - add units into the list from operations
     for ops in reversed(operations.payload.operations):
         date = datetime.date(ops.date)
-        rate_for_date = rates_CB[date]
+        rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
 
         if ops.figi == this_pos.figi and ops.payment != 0:
             if ops.operation_type == 'Buy':
@@ -138,7 +138,8 @@ def creating_positions_objects():
             global market_cost_rub_cb
             # total value rub CB
             if this_pos.average_position_price.currency in supported_currencies:
-                market_cost_rub_cb = market_cost * rates_CB[today_date][this_pos.average_position_price.currency]
+                rate = data_parser.get_exchange_rate_db(today_date, this_pos.average_position_price.currency)
+                market_cost_rub_cb = market_cost * rate
             else:
                 market_cost_rub_cb = 'unknown currency'
 
@@ -242,7 +243,7 @@ def create_operations_objects():
     instruments_dictionary = {}
     for this_op in operations.payload.operations:
         date = datetime.date(this_op.date)
-        rate_for_date = rates_CB[date]
+        rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
         # ticker
         if this_op.figi != None:
             if this_op.figi not in instruments_dictionary:
@@ -284,8 +285,8 @@ def calculate_operations_sums_rub(current_op_type):
         if op.op_type == current_op_type and op.op_payment != 0:
             if op.op_currency in supported_currencies:
                 date = datetime.date(op.op_date)  # op_date has a datetime.datetime type. I don't know, what a problem.
-                rate = rates_CB[date]
-                op_list.append(op.op_payment * rate[op.op_currency])
+                rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
+                op_list.append(op.op_payment * rate_for_date[op.op_currency])
             else:
                 logger.warning(f'Unsupported currency: {op.op_currency}')
     return sum(op_list)
@@ -329,8 +330,8 @@ def calculate_xirr(operations, portfolio_value):
         if (op.op_type == 'PayIn' or op.op_type == 'PayOut') and op.op_payment != 0:
             if op.op_currency in supported_currencies:
                 date = datetime.date(op.op_date)
-                rate = rates_CB[date]
-                dates_values[op.op_date] = -(op.op_payment * rate[op.op_currency])  # reverting the sign
+                rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
+                dates_values[op.op_date] = -(op.op_payment * rate_for_date[op.op_currency])  # reverting the sign
             else:
                 logger.warning(f'Unsupported currency: {op.op_currency}')
 
@@ -375,8 +376,7 @@ if __name__ == '__main__':
         today_date = datetime.date(account_data['now_date'])
         investing_period = data_parser.calc_investing_period(logger)
         investing_period_str = f'{investing_period.years}y {investing_period.months}m {investing_period.days}d'
-        rates_CB = data_parser.loop_dates(logger)
-        rates_today_cb = rates_CB[today_date]
+        rates_today_cb = data_parser.get_exchange_rates_for_date_db(today_date)
 
         # from main
         cash_rub = get_portfolio_cash_rub()

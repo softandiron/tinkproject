@@ -4,7 +4,10 @@ import logging
 import xlsxwriter
 import data_parser
 
-supported_currencies = ['RUB', 'USD', 'EUR']
+import currencies
+# For backward compatability - needs to be deprecated later
+# after merging parts tables
+supported_currencies = currencies.supported_currencies
 
 
 def get_color(num):
@@ -34,6 +37,9 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     cell_format['left'] = workbook.add_format({'align': 'left'})
     cell_format['bold_center'] = workbook.add_format({'align': 'center', 'bold': True})
     cell_format['bold_right'] = workbook.add_format({'align': 'right', 'bold': True})
+    for currency, data in currencies.currencies_data.items():
+        cell_format[currency] = workbook.add_format({'num_format': data['num_format'],
+                                                     'align': 'right'})
     cell_format['USD'] = workbook.add_format({'num_format': '## ### ##0.00   [$$-409]', 'align': 'right'})
     cell_format['RUB'] = workbook.add_format({'num_format': '## ### ##0.00   [$₽-ru-RU]', 'align': 'right'})
     cell_format['EUR'] = workbook.add_format({'num_format': '## ### ##0.00   [$€-x-euro1]', 'align': 'right'})
