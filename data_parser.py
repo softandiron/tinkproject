@@ -60,7 +60,7 @@ def calc_investing_period(logger):
     return inv_period
 
 
-def parse_text_file():
+def parse_text_file(logger=logging.getLogger()):
     logger.info('getting account data..')
     with open(file='my_account.txt') as token_file:
         my_token = token_file.readline().rstrip('\n')
