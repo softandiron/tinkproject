@@ -114,7 +114,7 @@ def creating_positions_objects():
     my_positions = list()
     for this_pos in positions.payload.positions:
         # type (stock, bond, etf or currency)
-        position_type = data_parser.get_position_type(this_pos.figi).value
+        position_type = data_parser.get_position_type(this_pos.figi)
 
         if this_pos.average_position_price.value > 0:
             if position_type == "Bond":
@@ -248,7 +248,7 @@ def create_operations_objects():
         if this_op.figi != None:
             if this_op.figi not in instruments_dictionary:
                 instrument = data_parser.get_instrument_by_figi(this_op.figi)
-                ticker = instrument.payload.ticker
+                ticker = instrument.ticker
                 instruments_dictionary[this_op.figi] = ticker
             else:
                 ticker = instruments_dictionary[this_op.figi]

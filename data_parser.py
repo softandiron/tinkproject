@@ -108,17 +108,24 @@ def get_current_market_price(figi):
     return price
 
 
-def get_position_type(figi):
-    client = tinvest.SyncClient(account_data['my_token'])
-    position_data = client.get_market_search_by_figi(figi)
-    type = position_data.payload.type
+def get_position_type(figi, max_age=7*24*60*60):
+    # max_age - timeout for getting old, default - 1 week
+    instrument = get_instrument_by_figi(figi, max_age)
+    type = instrument.type
     return type
 
 
-def get_instrument_by_figi(figi):
+def get_instrument_by_figi(figi, max_age=7*24*60*60):
+    # max_age - timeout for getting old, default - 1 week
+    instrument = database.get_instrument_by_figi(figi, max_age)
+    if instrument:
+        logger.debug(f"Instrument for {figi} found")
+        return instrument
+    logger.debug(f"Need to query instrument for {figi} from API")
     client = tinvest.SyncClient(account_data['my_token'])
-    instrument = client.get_market_search_by_figi(figi)
-    return  instrument
+    position_data = client.get_market_search_by_figi(figi)
+    database.put_instrument(position_data.payload)
+    return position_data.payload
 
 
 account_data = parse_text_file()

@@ -40,9 +40,6 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     for currency, data in currencies.currencies_data.items():
         cell_format[currency] = workbook.add_format({'num_format': data['num_format'],
                                                      'align': 'right'})
-    cell_format['USD'] = workbook.add_format({'num_format': '## ### ##0.00   [$$-409]', 'align': 'right'})
-    cell_format['RUB'] = workbook.add_format({'num_format': '## ### ##0.00   [$₽-ru-RU]', 'align': 'right'})
-    cell_format['EUR'] = workbook.add_format({'num_format': '## ### ##0.00   [$€-x-euro1]', 'align': 'right'})
     merge_format = {}
     merge_format['bold_center'] = workbook.add_format({'align': 'center', 'valign': 'vcenter', 'bold': True})
     merge_format['bold_right'] = workbook.add_format({'align': 'right', 'valign': 'vcenter', 'bold': True})
