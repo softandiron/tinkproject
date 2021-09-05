@@ -354,7 +354,9 @@ def calculate_xirr(operations, portfolio_value):
 
 if __name__ == '__main__':
 
-    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(asctime)s - %(message)s', datefmt='%H:%M:%S')
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s [%(levelname)-3s] %(name)s: %(message)s',
+                        datefmt='%H:%M:%S')
     logger = logging.getLogger()
     if sys.argv[-1] in ['-q', '--quiet']:
         logger.setLevel(logging.WARNING)
@@ -366,15 +368,15 @@ if __name__ == '__main__':
     logger.info('Start')
 
     # get accounts
-    accounts = data_parser.get_accounts(logger)
+    accounts = data_parser.get_accounts()
     for account in accounts.payload.accounts:
         logger.info(account)
 
         # from data_parser
-        positions, operations, market_rate_today, currencies = data_parser.get_api_data(account.broker_account_id, logger)
-        account_data = data_parser.parse_text_file(logger)
+        positions, operations, market_rate_today, currencies = data_parser.get_api_data(account.broker_account_id)
+        account_data = data_parser.parse_text_file()
         today_date = datetime.date(account_data['now_date'])
-        investing_period = data_parser.calc_investing_period(logger)
+        investing_period = data_parser.calc_investing_period()
         investing_period_str = f'{investing_period.years}y {investing_period.months}m {investing_period.days}d'
         rates_today_cb = data_parser.get_exchange_rates_for_date_db(today_date)
 
