@@ -106,9 +106,14 @@ def get_current_market_price(figi, depth=0, max_age=10*60):
     price = database.get_market_price_by_figi(figi, max_age)
     if price:
         return price
-    client = tinvest.SyncClient(account_data['my_token'])
-    book = client.get_market_orderbook(figi=figi, depth=depth)
-    price = book.payload.last_price
+    try:
+        client = tinvest.SyncClient(account_data['my_token'])
+        book = client.get_market_orderbook(figi=figi, depth=depth)
+        price = book.payload.last_price
+    except tinvest.exceptions.TooManyRequestsError:
+        logger.warn("Превышена частота запросов API. Пауза выполнения.")
+        time.sleep(0.5)
+        return get_current_market_price(figi, depth, max_age)
     database.put_market_price(figi, price)
     return price
 
@@ -127,8 +132,13 @@ def get_instrument_by_figi(figi, max_age=7*24*60*60):
         logger.debug(f"Instrument for {figi} found")
         return instrument
     logger.debug(f"Need to query instrument for {figi} from API")
-    client = tinvest.SyncClient(account_data['my_token'])
-    position_data = client.get_market_search_by_figi(figi)
+    try:
+        client = tinvest.SyncClient(account_data['my_token'])
+        position_data = client.get_market_search_by_figi(figi)
+    except tinvest.exceptions.TooManyRequestsError:
+        logger.warn("Превышена частота запросов API. Пауза выполнения.")
+        time.sleep(0.5)
+        return get_instrument_by_figi(figi, max_age)
     database.put_instrument(position_data.payload)
     return position_data.payload
 
