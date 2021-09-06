@@ -51,7 +51,7 @@ def get_exchange_rate(date):
     return rate
 
 
-def calc_investing_period(logger):
+def calc_investing_period():
     start_date = account_data['start_date'].replace(tzinfo=None)
     current_date = account_data['now_date']
     inv_period = relativedelta(current_date, start_date)
@@ -74,7 +74,8 @@ def parse_text_file(logger=logging.getLogger()):
     logger.info('account started: ' + start_date.strftime('%Y %b %d '))
     return {'my_token': my_token, 'my_timezone': my_timezone, 'start_date': start_date, 'now_date': now_date}
 
-def get_accounts(logger=logging.getLogger()):
+
+def get_accounts():
     logger.info('getting accounts')
     client = tinvest.SyncClient(account_data['my_token'])
     accounts = client.get_accounts()
@@ -82,7 +83,8 @@ def get_accounts(logger=logging.getLogger()):
     logger.info('accounts received')
     return accounts
 
-def get_api_data(broker_account_id, logger=logging.getLogger()):
+
+def get_api_data(broker_account_id):
     logger.info("authorisation..")
     client = tinvest.SyncClient(account_data['my_token'])
     logger.info("authorisation success")
