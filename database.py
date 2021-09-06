@@ -46,6 +46,20 @@ def init_database():
     except Exception as e:
         db_logger.error("Error creating instruments table", e)
 
+    db_logger.debug("Checking marketprice cache table")
+    marketprice_sql = """CREATE TABLE IF NOT EXISTS marketprice (
+        timestamp timestamp,
+        figi TEXT,
+        price TEXT,
+        PRIMARY KEY (figi)
+    ) WITHOUT ROWID;
+    """
+    try:
+        cursor.execute(marketprice_sql)
+        sqlite_connection.commit()
+    except Exception as e:
+        db_logger.error("Error creating marketprice table", e)
+
 
 def close_database_connection():
     sqlite_connection.commit()
@@ -123,6 +137,38 @@ def get_instrument_by_figi(figi, max_age=7*24*60*60):
                                         min_price_increment=row['min_price_increment'],
                                         isin=row['isin'])
     return instrument
+
+
+def put_market_price(figi, price=Decimal(1.0)):
+    date_str = datetime.now()
+    db_logger.debug(f"Put market price for {figi}")
+    sql = """INSERT OR REPLACE INTO marketprice (timestamp,
+        figi, price)
+        VALUES (?, ?, ?);"""
+    try:
+        cursor.execute(sql, (date_str, figi, str(price)))
+        sqlite_connection.commit()
+    except sqlite3.Error as e:
+        db_logger.error("Marketprice insertion error", e)
+        return False
+    return True
+
+
+def get_market_price_by_figi(figi, max_age=10*60):
+    # max_age - timeout of getting old - default - 10 minutes
+    db_logger.debug(f"Get market price for {figi}")
+    sql_s = "SELECT * FROM marketprice where figi = ?;"
+    try:
+        row = cursor.execute(sql_s, (figi,)).fetchone()
+        if row and datetime.now().timestamp() - row['timestamp'].timestamp() > max_age:
+            db_logger.debug(f"Market price for {figi} is too old")
+            row = None
+    except sqlite3.Error as e:
+        db_logger.error("Error getting market price", e)
+    if not row or row is None:
+        return None
+    db_logger.debug(f"Returning market price for {figi}")
+    return Decimal(row['price'])
 
 
 try:
