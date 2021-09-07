@@ -414,140 +414,59 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     def print_clarification(s_row, s_col ):
         logger.info('printing clarification..')
         n = 0
-        worksheet_port.write(s_row + n, s_col, 'name', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n , s_col + 1, s_row + n , s_col + 16,
-                                   ' - название инструмента',
-                                   merge_format['left'])
-        n += 1
-        worksheet_port.write(s_row + n, s_col, 'ticker', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n , s_col + 1, s_row + n, s_col + 16,
-                                   ' - тикер инструмента',
-                                   merge_format['left'])
-        n += 1
-        worksheet_port.write(s_row + n, s_col, 'balance', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n , s_col + 1, s_row + n, s_col + 16,
-                                   ' - количество бумаг в портфеле',
-                                   merge_format['left'])
-        n += 1
-        worksheet_port.write(s_row + n, s_col, 'currency', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n , s_col + 1, s_row + n, s_col + 16,
-                                   ' - валюта',
-                                   merge_format['left'])
-        n += 1
-        worksheet_port.write(s_row + n, s_col, 'ave.price', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n , s_col + 1, s_row + n, s_col + 16,
-                                   ' - средняя цена покупки одной бумаги',
-                                   merge_format['left'])
-        n += 1
-        worksheet_port.write(s_row + n, s_col, 'sum.buy', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n , s_col + 1, s_row + n, s_col + 16,
-                                   ' - стоимость приобретения. = ave.price * balance',
-                                   merge_format['left'])
-        n += 1
-        worksheet_port.write(s_row + n, s_col, 'exp.yield', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n , s_col + 1, s_row + n, s_col + 16,
-                                   ' - ожидаемый доход при полном закрытии позиции',
-                                   merge_format['left'])
-        n += 1
-        worksheet_port.write(s_row + n, s_col, 'market price', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n , s_col + 1, s_row + n, s_col + 16,
-                                   ' - рыночная цена одной бумаги. Берётся из API,'
-                                   ' но для облигаций = market value / balance',
-                                   merge_format['left'])
-        n += 1
-        worksheet_port.write(s_row + n, s_col, '% change', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n , s_col + 1, s_row + n, s_col + 16,
-                                   ' - изменение рыночной стоимости одной бумаги относительно её ave.price',
-                                   merge_format['left'])
-        n += 1
-        worksheet_port.write(s_row + n, s_col, 'market value', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n , s_col + 1, s_row + n, s_col + 16,
-                                   ' - рыночная стоимость всей позиции в портфеле',
-                                   merge_format['left'])
-        n += 1
-        worksheet_port.write(s_row + n, s_col, 'market value RUB', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n , s_col + 1, s_row + n, s_col + 16,
-                                   ' - market value в рублях по рыночному курсу',
-                                   merge_format['left'])
-        n += 2
-        worksheet_port.write(s_row + n, s_col, 'CB value RUB', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n, s_col + 1, s_row + n, s_col + 16,
-                                   ' - тоже market value в рублях, но по курсу ЦБ на сегодня',
-                                   merge_format['left'])
-        n += 1
-        worksheet_port.write(s_row + n, s_col, 'ave.buy in RUB', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n, s_col + 1, s_row + n, s_col + 16,
-                                   ' - средняя цена покупки в рублях по курсу ЦБ на день покупки. Рассчитывается сложно',
-                                   merge_format['left'])
-        n += 1
-        worksheet_port.write(s_row + n, s_col, 'sum.buy in RUB', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n, s_col + 1, s_row + n, s_col + 16,
-                                   ' - сумма покупки всей позиции в рублях по курсу ЦБ. = ave.buy in RUB * balance',
-                                   merge_format['left'])
-        n += 1
-        worksheet_port.write(s_row + n, s_col, 'tax base', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n, s_col + 1, s_row + n, s_col + 16,
-                                   ' - налоговая база. Разница между текущей рыночной стоимостью позиции '
-                                   'в рублях по курсу ЦБ и стоимостью её приобретения.'
-                                   '= CB value RUB - sum.buy in RUB',
-                                   merge_format['left'])
-        n += 1
-        worksheet_port.write(s_row + n, s_col, 'expected tax', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n, s_col + 1, s_row + n, s_col + 16,
-                                   ' - ожидаемый налог. = tax.base * 13%. Не учитывает налоговые льготы и'
-                                   'налог, который мог уже набежать по ранее закрытым позициям',
-                                   merge_format['left'])
-        n += 2
-        worksheet_port.write(s_row + n, s_col, 'Investing period', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n, s_col + 1, s_row + n, s_col + 16,
-                                   ' - период инвестирования. Сколько лет, месяцев, дней с даты,'
-                                   'которая указана в my_account.txt до сегодняшнего дня',
-                                   merge_format['left'])
-        n += 1
-        worksheet_port.write(s_row + n, s_col, 'PayIn - PayOut', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n, s_col + 1, s_row + n, s_col + 16,
-                                   ' - разница между заведёнными на счёт средствами и выведенными. ',
-                                   merge_format['left'])
-        n += 1
-        worksheet_port.write(s_row + n, s_col, 'Commissions payed', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n, s_col + 1, s_row + n, s_col + 16,
-                                   ' - сумма всех уплаченных комиссий (За торговлю и за обслуживаение)',
-                                   merge_format['left'])
-        n += 1
-        worksheet_port.write(s_row + n, s_col, 'Taxes payed', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n, s_col + 1, s_row + n, s_col + 16,
-                                   ' - сумма всех уплаченных налогов (Закрытие позиций, купоны и дивиденды)',
-                                   merge_format['left'])
-        n += 1
-        worksheet_port.write(s_row + n, s_col, 'Clean portfolio', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n, s_col + 1, s_row + n, s_col + 16,
-                                   ' - стоимость портфеля, очищенная от налога, '
-                                   'начисляемого при закрытии всех позиций. '
-                                   'Не учитывает возможные льготы и те налоги,'
-                                   ' которые уже могли набежать по ранее закрытым позициям, '
-                                   'а также самостоятельно декларируемые налоги',
-                                   merge_format['left'])
-        n += 1
-        worksheet_port.write(s_row + n, s_col, 'Profit', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n, s_col + 1, s_row + n, s_col + 16,
-                                   ' - почти чистая прибыль. = Clean portfolio - (PayIn - PayOut)',
-                                   merge_format['left'])
-        n += 1
-        worksheet_port.write(s_row + n, s_col, 'XIRR', cell_format['bold_right'])
-        worksheet_port.merge_range(s_row + n, s_col + 1, s_row + n, s_col + 16,
-                                   ' - the irregular internal rate of return. Показатель на основе формулы Excel, '
-                                   'которая рассчитывает эффективность инвестирования '
-                                   'с учётом всех пополнений и выводов средств',
-                                   merge_format['left'])
-        n += 4
-        worksheet_port.merge_range(s_row + n, s_col + 1, s_row + n, s_col + 16,
-                                   ' Разработано @softandiron и контрибьюторами. Версия v2.x, 2021 год.',
-                                   merge_format['left'])
-        n += 1
-        worksheet_port.merge_range(s_row + n, s_col + 1, s_row + n, s_col + 16,
-                                   ' GitHub: https://github.com/softandiron/tinkproject',
-                                   merge_format['left'])
-        n += 1
+        lines = [
+            # ['заглавие', 'описание', кол-во дополнительных строк после],
+            ['name', 'название инструмента', 0],
+            ['ticker', 'тикер инструмента', 0],
+            ['balance', 'количество бумаг в портфеле', 0],
+            ['currency', 'валюта', 0],
+            ['ave.price', 'средняя цена покупки одной бумаги', 0],
+            ['sum.buy', 'стоимость приобретения. = ave.price * balance', 0],
+            ['exp.yield', 'ожидаемый доход при полном закрытии позиции', 0],
+            ['market price', 'рыночная цена одной бумаги. Берётся из API,'
+                             ' но для облигаций = market value / balance', 0],
+            ['% change', 'изменение рыночной стоимости одной бумаги относительно её ave.price', 0],
+            ['market value', 'рыночная стоимость всей позиции в портфеле', 0],
+            ['market value RUB', 'market value в рублях по рыночному курсу', 1],
+
+            ['CB value RUB', 'тоже market value в рублях, но по курсу ЦБ на сегодня', 0],
+            ['ave.buy in RUB', 'средняя цена покупки в рублях по курсу ЦБ на день покупки.'
+                               ' Рассчитывается сложно', 0],
+            ['sum.buy in RUB', 'сумма покупки всей позиции в рублях по курсу ЦБ.'
+                               ' = ave.buy in RUB * balance', 0],
+            ['tax base', 'налоговая база. Разница между текущей рыночной стоимостью позиции '
+                         'в рублях по курсу ЦБ и стоимостью её приобретения.'
+                         '= CB value RUB - sum.buy in RUB', 0],
+            ['expected tax', 'ожидаемый налог. = tax.base * 13%. Не учитывает налоговые льготы и'
+                             'налог, который мог уже набежать по ранее закрытым позициям', 1],
+
+            ['Investing period', 'период инвестирования. Сколько лет, месяцев, дней с даты,'
+                                 'которая указана в my_account.txt до сегодняшнего дня', 0],
+            ['PayIn - PayOut', 'разница между заведёнными на счёт средствами и выведенными. ', 0],
+            ['Commissions payed', 'сумма всех уплаченных комиссий'
+                                  ' (За торговлю и за обслуживаение)', 0],
+            ['Taxes payed', 'сумма всех уплаченных налогов'
+                            ' (Закрытие позиций, купоны и дивиденды)', 0],
+            ['Clean portfolio', ' - стоимость портфеля, очищенная от налога, '
+                                'начисляемого при закрытии всех позиций. '
+                                'Не учитывает возможные льготы и те налоги,'
+                                ' которые уже могли набежать по ранее закрытым позициям, '
+                                'а также самостоятельно декларируемые налоги', 0],
+            ['Profit', 'почти чистая прибыль. = Clean portfolio - (PayIn - PayOut)', 0],
+            ['XIRR', 'the irregular internal rate of return. Показатель на основе формулы Excel, '
+                     'которая рассчитывает эффективность инвестирования '
+                     'с учётом всех пополнений и выводов средств', 3],
+
+            ['', ' Разработано @softandiron и контрибьюторами. Версия v2.x, 2021 год.', 0],
+            ['', ' GitHub: https://github.com/softandiron/tinkproject', 0]
+        ]
+
+        for line in lines:
+            worksheet_port.write(s_row + n, s_col, line[0], cell_format['bold_right'])
+            worksheet_port.merge_range(s_row + n, s_col + 1, s_row + n, s_col + 16,
+                                       '  ' + line[1],
+                                       merge_format['left'])
+            n += 1 + line[2]
 
     last_row_pos = print_portfolio(1, 1)
     print_operations(1, 2)
