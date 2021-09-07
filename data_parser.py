@@ -102,6 +102,7 @@ def parse_text_file(logger=logging.getLogger()):
     logger.info('account started: ' + start_date.strftime('%Y %b %d '))
     return {'my_token': my_token, 'my_timezone': my_timezone, 'start_date': start_date, 'now_date': now_date}
 
+
 def get_accounts(logger=logging.getLogger()):
     logger.info('getting accounts')
     client = tinvest.SyncClient(account_data['my_token'])
@@ -110,13 +111,14 @@ def get_accounts(logger=logging.getLogger()):
     logger.info('accounts received')
     return accounts
 
+
 def get_api_data(broker_account_id, logger=logging.getLogger()):
     logger.info("authorisation..")
     client = tinvest.SyncClient(account_data['my_token'])
     logger.info("authorisation success")
     positions = client.get_portfolio(broker_account_id=broker_account_id)
     operations = client.get_operations(from_=account_data['start_date'], to=account_data['now_date'], broker_account_id=broker_account_id)
-    course_usd = client.get_market_orderbook(figi='BBG0013HGFT4', depth=20) # check this!!!
+    course_usd = client.get_market_orderbook(figi='BBG0013HGFT4', depth=20)  # check this!!!
     course_eur = client.get_market_orderbook(figi='BBG0013HJJ31', depth=20)
     currencies = client.get_portfolio_currencies(broker_account_id=broker_account_id)
     logger.info("portfolio received")
