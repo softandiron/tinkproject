@@ -354,14 +354,17 @@ def calculate_xirr(operations, portfolio_value):
 
 if __name__ == '__main__':
 
-    logging.basicConfig(level=logging.INFO,
+    logging_level = logging.INFO
+
+    if sys.argv[-1] in ['-q', '--quiet']:
+        logging_level = logging.WARNING
+    elif sys.argv[-1] in ['-d', '--debug']:
+        logging_level = logging.DEBUG
+
+    logging.basicConfig(level=logging_level,
                         format='%(asctime)s [%(levelname)-3s] %(name)s: %(message)s',
                         datefmt='%H:%M:%S')
     logger = logging.getLogger()
-    if sys.argv[-1] in ['-q', '--quiet']:
-        logger.setLevel(logging.WARNING)
-    elif sys.argv[-1] in ['-d', '--debug']:
-        logger.setLevel(logging.DEBUG)
 
     start_time = time.time()
     tax_rate = 13  # percents
