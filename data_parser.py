@@ -144,3 +144,4 @@ def get_instrument_by_figi(figi, max_age=7*24*60*60):
 
 
 account_data = parse_text_file()
+database.open_database_connection()

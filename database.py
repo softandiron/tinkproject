@@ -5,8 +5,6 @@ import logging
 from decimal import Decimal
 from tinvest.schemas import SearchMarketInstrument
 
-db_file_name = "assets_db.db"
-
 db_logger = logging.getLogger("DB")
 db_logger.setLevel(logging.INFO)
 
@@ -171,18 +169,21 @@ def get_market_price_by_figi(figi, max_age=10*60):
     return Decimal(row['price'])
 
 
-try:
-    db_logger.debug("Connecting to the DB...")
-    sqlite_connection = sqlite3.connect(db_file_name,
-                                        detect_types=sqlite3.PARSE_DECLTYPES |
-                                        sqlite3.PARSE_COLNAMES)
-    sqlite_connection.row_factory = sqlite3.Row
-    cursor = sqlite_connection.cursor()
-    init_database()
-except sqlite3.Error as error:
-    db_logger.error("Error connecting database", error)
+def open_database_connection(db_file_name="assets_db.db"):
+    global sqlite_connection
+    global cursor
+    try:
+        db_logger.debug("Connecting to the DB...")
+        sqlite_connection = sqlite3.connect(db_file_name,
+                                            detect_types=sqlite3.PARSE_DECLTYPES |
+                                            sqlite3.PARSE_COLNAMES)
+        sqlite_connection.row_factory = sqlite3.Row
+        cursor = sqlite_connection.cursor()
+        init_database()
+    except sqlite3.Error as error:
+        db_logger.error("Error connecting database", error)
 
 
 if __name__ == '__main__':
-
+    open_database_connection()
     close_database_connection()
