@@ -13,14 +13,36 @@ import tinvest
 from pycbrf.rates import ExchangeRate
 from pycbrf.toolbox import ExchangeRates
 
-import csv
+import database
+from currencies import currencies_data, supported_currencies
 
-import cache
+logger = logging.getLogger("Parser")
+logger.setLevel(logging.INFO)
 
 # creating ruble 1:1 exchange rate for cleaner iterating over currencies
 ruble = ExchangeRate(code='RUB', value=Decimal(1), rate=Decimal(1), name='Рубль', id='KOSTYL', num='KOSTYL',
                      par=Decimal(1))
 delay_time = 0.1
+
+
+def get_exchange_rate_db(date=datetime.now(), currency="USD"):
+    rate = database.get_exchange_rate(date, currency)
+    if rate:
+        return rate
+    # Если курс не найден
+    logger.info(f"Need to get rates for {date} from CB")
+    rates = get_exchange_rate(date)
+    for curr in supported_currencies:
+        curr_rate = rates[curr].value
+        database.put_exchange_rate(date, curr, curr_rate)
+    return get_exchange_rate_db(date, currency)
+
+
+def get_exchange_rates_for_date_db(date):
+    rates = {}
+    for currency in supported_currencies:
+        rates[currency] = get_exchange_rate_db(date, currency)
+    return rates
 
 
 def get_exchange_rate(date):
@@ -29,65 +51,13 @@ def get_exchange_rate(date):
     return rate
 
 
-def calc_investing_period(logger):
+def calc_investing_period():
     start_date = account_data['start_date'].replace(tzinfo=None)
     current_date = account_data['now_date']
     inv_period = relativedelta(current_date, start_date)
     logger.info('investing period: ' + str(inv_period.years) + ' years ' + str(inv_period.months) + ' months '
                                                                          + str(inv_period.days) + ' days')
     return inv_period
-
-
-def generate_date_range():
-    start_date = account_data['start_date'].replace(tzinfo=None)
-    current_date = account_data['now_date']
-    for n in range(int((current_date - start_date).days)):
-        yield datetime.date(start_date + timedelta(n))
-
-
-def loop_dates(logger=logging.getLogger()):
-    day_rates = {}
-
-    logger.info('downloading CB rates from saved Database..')
-    with open('rates_by_date.csv', 'r') as file:
-        reader = csv.reader(file)
-        # creating a dictionary from csv:
-        for row in reader:
-            if row[0] == "date":
-                continue
-            date = datetime.strptime(row[0], '%Y-%m-%d').date()
-            usd = decimal.Decimal(row[1])
-            eur = decimal.Decimal(row[2])
-            rub = decimal.Decimal(row[3])
-            day_rates.update({date: {'USD': usd, 'EUR': eur, 'RUB': rub}})
-
-        # checking for new dates, and adding them from CB API to dictionary:
-        logger.info('checking for the new dates..')
-        for date in generate_date_range():
-            if date not in day_rates.keys():
-                logger.info('new date: ' + str(date))
-                rates = get_exchange_rate(date)
-                usd = rates['USD'].value
-                eur = rates['EUR'].value
-                rub = Decimal(1)
-                day_rates.update({date: {'USD': usd, 'EUR': eur, 'RUB': rub}})
-                time.sleep(delay_time)
-
-        # updating the csv file for the future:
-        logger.info('updating Database..')
-        with open('rates_by_date.csv', 'w', newline='') as file:
-            writer = csv.writer(file)
-            for date in day_rates.keys():
-                writer.writerow([date, day_rates[date]['USD'], day_rates[date]['EUR'], day_rates[date]['RUB']])
-
-        rates = get_exchange_rate(account_data['now_date'])
-        # add the today day
-        day_rates.update({datetime.date(account_data['now_date'].replace(tzinfo=None)): {'USD': rates['USD'].value,
-                                                                                         'EUR': rates['EUR'].value,
-                                                                                         'RUB': Decimal(1)}})
-
-    logger.info('all the rates are saved')
-    return day_rates
 
 
 def parse_text_file(logger=logging.getLogger()):
@@ -104,7 +74,8 @@ def parse_text_file(logger=logging.getLogger()):
     logger.info('account started: ' + start_date.strftime('%Y %b %d '))
     return {'my_token': my_token, 'my_timezone': my_timezone, 'start_date': start_date, 'now_date': now_date}
 
-def get_accounts(logger=logging.getLogger()):
+
+def get_accounts():
     logger.info('getting accounts')
     client = tinvest.SyncClient(account_data['my_token'])
     accounts = client.get_accounts()
@@ -112,56 +83,65 @@ def get_accounts(logger=logging.getLogger()):
     logger.info('accounts received')
     return accounts
 
-def get_api_data(broker_account_id, logger=logging.getLogger()):
+
+def get_api_data(broker_account_id):
     logger.info("authorisation..")
     client = tinvest.SyncClient(account_data['my_token'])
     logger.info("authorisation success")
     positions = client.get_portfolio(broker_account_id=broker_account_id)
     operations = client.get_operations(from_=account_data['start_date'], to=account_data['now_date'], broker_account_id=broker_account_id)
-    course_usd = client.get_market_orderbook(figi='BBG0013HGFT4', depth=20) # check this!!!
-    course_eur = client.get_market_orderbook(figi='BBG0013HJJ31', depth=20)
+    market_rate_today = {}
+    for currency, data in currencies_data.items():
+        if 'figi' in data.keys():
+            market_rate_today[currency] = get_current_market_price(figi=data['figi'], depth=0)
+        else:
+            market_rate_today[currency] = 1
     currencies = client.get_portfolio_currencies(broker_account_id=broker_account_id)
     logger.info("portfolio received")
-    market_rate_today = {'USD': course_usd.payload.last_price,
-                         'EUR': course_eur.payload.last_price,
-                         'RUB': 1}
 
     return positions, operations, market_rate_today, currencies
 
 
-def get_current_market_price(figi):
-    cache_timeout = 60*10  # 10 minutes in seconds
-    cache_key = f"{figi}-current_market_price"
-    price = cache.get_from_cache(cache_key, cache_timeout)
-    if not price:
+def get_current_market_price(figi, depth=0, max_age=10*60):
+    price = database.get_market_price_by_figi(figi, max_age)
+    if price:
+        return price
+    try:
         client = tinvest.SyncClient(account_data['my_token'])
-        book = client.get_market_orderbook(figi=figi, depth=20)
+        book = client.get_market_orderbook(figi=figi, depth=depth)
         price = book.payload.last_price
-        cache.put_to_cache(cache_key, price, cache_timeout)
+    except tinvest.exceptions.TooManyRequestsError:
+        logger.warn("Превышена частота запросов API. Пауза выполнения.")
+        time.sleep(0.5)
+        return get_current_market_price(figi, depth, max_age)
+    database.put_market_price(figi, price)
     return price
 
 
-def get_position_type(figi):
-    cache_timeout = 60*60*24*7  # 1 week in seconds
-    cache_key = f"{figi}-type"
-    type = cache.get_from_cache(cache_key, cache_timeout)
-    if not type:
-        client = tinvest.SyncClient(account_data['my_token'])
-        position_data = client.get_market_search_by_figi(figi)
-        type = position_data.payload.type
-        cache.put_to_cache(cache_key, type, cache_timeout)
+def get_position_type(figi, max_age=7*24*60*60):
+    # max_age - timeout for getting old, default - 1 week
+    instrument = get_instrument_by_figi(figi, max_age)
+    type = instrument.type
     return type
 
 
-def get_instrument_by_figi(figi):
-    cache_timeout = 60*60*24*7  # 1 week in seconds
-    cache_key = f"{figi}-instrument"
-    instrument = cache.get_from_cache(cache_key, cache_timeout)
-    if not instrument:
+def get_instrument_by_figi(figi, max_age=7*24*60*60):
+    # max_age - timeout for getting old, default - 1 week
+    instrument = database.get_instrument_by_figi(figi, max_age)
+    if instrument:
+        logger.debug(f"Instrument for {figi} found")
+        return instrument
+    logger.debug(f"Need to query instrument for {figi} from API")
+    try:
         client = tinvest.SyncClient(account_data['my_token'])
-        instrument = client.get_market_search_by_figi(figi)
-        cache.put_to_cache(cache_key, instrument, cache_timeout)
-    return instrument
+        position_data = client.get_market_search_by_figi(figi)
+    except tinvest.exceptions.TooManyRequestsError:
+        logger.warn("Превышена частота запросов API. Пауза выполнения.")
+        time.sleep(0.5)
+        return get_instrument_by_figi(figi, max_age)
+    database.put_instrument(position_data.payload)
+    return position_data.payload
 
 
 account_data = parse_text_file()
+database.open_database_connection()
