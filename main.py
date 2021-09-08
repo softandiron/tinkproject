@@ -13,6 +13,7 @@ import operator
 import scipy.optimize
 
 import data_parser
+import excel_builder
 from excel_builder import build_excel_file, supported_currencies, assets_types
 
 
@@ -417,6 +418,8 @@ if __name__ == '__main__':
                         format='%(asctime)s [%(levelname)-3s] %(name)s: %(message)s',
                         datefmt='%H:%M:%S')
     logger = logging.getLogger()
+    data_parser.logger.setLevel(logging_level)
+    excel_builder.logger.setLevel(logging_level)
 
     start_time = time.time()
     tax_rate = 13  # percents
@@ -468,6 +471,6 @@ if __name__ == '__main__':
         # EXCEL
         build_excel_file(account, my_positions, my_operations, rates_today_cb, market_rate_today,
                          average_percent, portfolio_cost_rub_market, sum_profile,
-                         investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate, logger)
+                         investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate)
 
     logger.info(f'done in {time.time() - start_time:.2f} seconds')
