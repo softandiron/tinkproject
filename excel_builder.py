@@ -3,6 +3,7 @@
 import logging
 import xlsxwriter
 import data_parser
+from decimal import Decimal
 
 import currencies
 # For backward compatability - needs to be deprecated later
