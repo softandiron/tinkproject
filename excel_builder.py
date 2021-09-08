@@ -48,6 +48,9 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                                                      'align': 'right'})
         cell_format[f'{currency}-bold'] = workbook.add_format({'num_format': data['num_format'],
                                                                'align': 'right', 'bold': True})
+        cell_format[f'{currency}-bold-total'] = workbook.add_format({'num_format': data['num_format'],
+                                                                     'align': 'right', 'bold': True})
+        cell_format[f'{currency}-bold-total'].set_top(1)
     merge_format = {}
     merge_format['bold_center'] = workbook.add_format({'align': 'center', 'valign': 'vcenter', 'bold': True})
     merge_format['bold_right'] = workbook.add_format({'align': 'right', 'valign': 'vcenter', 'bold': True})
@@ -422,6 +425,68 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                                    'average monthly salary for the last 12 months:', merge_format['bold_right'])
         worksheet_divs.write(start_row, start_col + 3, round(sum(operations_in_last_12_months) / 12, 2), cell_format['RUB'])
 
+    def print_iis_deduction_table():
+        if sum_profile['broker_account_type'] != "TinkoffIis":
+            logger.debug("account is not of IIS Type")
+            return
+        logger.info("printing IIS deductions table")
+
+        start_col = 9
+        start_row = 7
+        # Headers
+        worksheet_divs.merge_range(start_row-2, start_col,
+                                   start_row-2, start_col + 3,
+                                   "Расчет налогового вычета ИИС", merge_format['bold_center'])
+        worksheet_divs.set_column(start_col + 1, start_col + 3, 13)
+        # worksheet_divs.write(start_row, start_col, 'Year', cell_format['bold_center'])
+        worksheet_divs.write(start_row, start_col + 1, 'PayIns', cell_format['bold_center'])
+        worksheet_divs.write(start_row, start_col + 2, 'Tax Base', cell_format['bold_center'])
+        worksheet_divs.write(start_row, start_col + 3, 'Deduction', cell_format['bold_center'])
+
+        start_row += 1
+
+        year_sums = {}
+        for operation in my_operations:
+            if operation.op_type != 'PayIn':
+                continue
+            # По состоянию на 08.09.2021 пополнять ИИС можно только рублями,
+            # Поэтому проверка формальная на случай - если вдруг это изменится
+            if operation.op_currency != "RUB":
+                logger.warn(f"PayIn to IIS not in RUB. {operation}")
+                continue
+            operation_year = int(operation.op_date.strftime('%Y'))
+            if operation_year not in year_sums.keys():
+                year_sums[operation_year] = operation.op_payment
+            else:
+                year_sums[operation_year] += operation.op_payment
+
+        deduct_total = 0
+        base_limit = Decimal(400000)  # Ограничение налоговой базы по закону
+        payin_limit = Decimal(1000000)  # Ограничение на взносы за год по закону
+        for year in sorted(year_sums.keys(), reverse=True):
+            payin = year_sums[year]
+            if payin > payin_limit:
+                # если тут - то где-то что-то пошло ОЧЕНЬ неправильно!
+                logger.warn(f'Взносы на ИИС в {year}г. больше лимита на взносы'
+                            f' {payin_limit}р и составили {payin}р')
+            base = payin
+            if payin > base_limit:
+                base = base_limit
+                logger.info(f'Взносы на ИИС в {year}г. больше лимита на вычет {base_limit}р, '
+                            f'составили {payin}р. Налоговая база скорректирована.')
+            deduct = base * Decimal(0.13)
+            deduct_total += deduct
+            worksheet_divs.write(start_row, start_col, year, cell_format['bold_center'])
+            worksheet_divs.write(start_row, start_col + 1, payin, cell_format['RUB'])
+            worksheet_divs.write(start_row, start_col + 2, base, cell_format['RUB'])
+            worksheet_divs.write(start_row, start_col + 3, deduct, cell_format['RUB'])
+            start_row += 1
+
+        # for the line on cell top
+        worksheet_divs.write(start_row, start_col + 1, "", cell_format['RUB-bold-total'])
+        worksheet_divs.write(start_row, start_col + 2, "", cell_format['RUB-bold-total'])
+        worksheet_divs.write(start_row, start_col + 3, deduct_total, cell_format['RUB-bold-total'])
+
     def print_parts():
         logger.info('printing portfolio parts statistics...')
 
@@ -616,6 +681,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     print_statistics(last_row_pos + 3, 1)
     print_clarification(last_row_pos + 18, 1)
     print_dividends_and_coupons()
+    print_iis_deduction_table()
     print_parts()
 
     # finish Excel
