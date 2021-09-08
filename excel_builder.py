@@ -10,6 +10,9 @@ import currencies
 supported_currencies = currencies.supported_currencies
 assets_types = ['Stock', 'Bond', 'Etf', 'Other', 'Currency']
 
+logger = logging.getLogger("ExBuild")
+logger.setLevel(logging.INFO)
+
 
 def get_color(num):
     if num > 0:
@@ -21,8 +24,7 @@ def get_color(num):
 
 def build_excel_file(account, my_positions, my_operations, rates_today_cb, market_rate_today,
                      average_percent, portfolio_cost_rub_market, sum_profile,
-                     investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate,
-                     logger=logging.getLogger()):
+                     investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate):
 
     logger.info('creating excel file..')
     excel_file_name = 'tinkoffReport_' + data_parser.account_data['now_date'].strftime('%Y.%b.%d') + '_'\
