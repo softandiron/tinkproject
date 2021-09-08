@@ -47,6 +47,9 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                                                      'align': 'right'})
         cell_format[f'{currency}-bold'] = workbook.add_format({'num_format': data['num_format'],
                                                                'align': 'right', 'bold': True})
+        cell_format[f'{currency}-bold-total'] = workbook.add_format({'num_format': data['num_format'],
+                                                                     'align': 'right', 'bold': True})
+        cell_format[f'{currency}-bold-total'].set_top(1)
     merge_format = {}
     merge_format['bold_center'] = workbook.add_format({'align': 'center', 'valign': 'vcenter', 'bold': True})
     merge_format['bold_right'] = workbook.add_format({'align': 'right', 'valign': 'vcenter', 'bold': True})
@@ -488,11 +491,14 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                 start_row += 1
                 chart_data_row += 1
 
-            worksheet_parts.write(start_row, start_col + 2, data['value'], cell_format[currency+"-bold"])
-            worksheet_parts.write(start_row, start_col + 3, data['valueRub'], cell_format['RUB-bold'])
+            # Totals for the currency
+            worksheet_parts.write(start_row, start_col + 2,
+                                  data['value'], cell_format[f'{currency}-bold-total'])
+            worksheet_parts.write(start_row, start_col + 3,
+                                  data['valueRub'], cell_format['RUB-bold-total'])
             # worksheet_parts.write(start_row, start_col + 4, type_data['currencyPart'], cell_format['perc'])
 
-            start_row += 2  # пропуск между валютами
+            start_row += 3  # пропуск между валютами
 
         start_col += 8
         start_row = 6
