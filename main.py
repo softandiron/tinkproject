@@ -437,6 +437,7 @@ if __name__ == '__main__':
         portfolio_cost_rub_market = get_portfolio_cost_rub_market()
 
         sum_profile = {}
+        sum_profile['broker_account_type'] = account.broker_account_type.value
         sum_profile['portfolio_value_rub_cb'] = calculate_cb_value_rub_sum()
         sum_profile['pos_ave_buy_rub'] = calculate_sum_pos_ave_buy_rub()
         sum_profile['exp_tax'] = calculate_sum_exp_tax()
