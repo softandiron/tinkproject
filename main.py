@@ -13,6 +13,7 @@ import operator
 import scipy.optimize
 
 import data_parser
+import excel_builder
 from excel_builder import build_excel_file, supported_currencies, assets_types
 
 
@@ -63,15 +64,46 @@ def calculate_ave_buy_price_rub(this_pos):
     # for this position's figi - add units into the list from operations
     for ops in reversed(operations.payload.operations):
         date = datetime.date(ops.date)
-        rate_for_date = rates_CB[date]
+        rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
 
         if ops.figi == this_pos.figi and ops.payment != 0:
             if ops.operation_type == 'Buy' or ops.operation_type == 'BuyCard':
+                # Определим - был ли в истории сплит или обратный сплит
+                op_price = Decimal(ops.payment / ops.quantity_executed)
+                quantity = ops.quantity_executed
+                price = data_parser.get_figi_history_price(ops.figi, date)
+
+                logger.debug(f"Цена на {date} на бирже - {price}, в операции - {op_price}")
+                logger.debug(f"{ops}")
+
+                if ops.currency != this_pos.average_position_price.currency:
+                    # Если валюта расчетов за актив менялась - то не исользвать расчет сплита
+                    # Например AMHY и AMIG в августе 2021 года перешли с USD на RUB
+                    logger.debug(f"{this_pos.ticker} - произошла смена валют актива! "
+                                 f"{ops.currency} -> {this_pos.average_position_price.currency}")
+                elif price:
+                    # Определяем соотношение цен. Больше 1 - сплит акции, меньше 1 - обратный сплит
+                    # соответственно меняем количество купленных бумаг в пропорции
+                    ratio = Decimal(abs(op_price/price))
+                    logger.debug(f"Отношение цен - {ratio}")
+                    if round(ratio) > 1:
+                        ratio = round(ratio)
+                        logger.warning(f"Вероятно, был сплит {this_pos.ticker} - "
+                                       f"отношение цен 1:{ratio}")
+                        quantity = int(quantity*ratio)
+                    elif round(ratio, 2) < Decimal(0.95):
+                        # 0.95 - для погрешности в ценах свечей за день
+                        ratio_out = 1/ratio
+                        logger.warning(f"Вероятно, был обратный сплит {this_pos.ticker} - "
+                                       f"отношение цен {ratio_out:.0f}:1")
+                        quantity = int(quantity/ratio)
+
+                # Когда опередлились с количеством активов по заявленной цене - считаем
                 if ops.currency in supported_currencies:
                     # price for 1 item
-                    item = (ops.payment / ops.quantity_executed) * rate_for_date[ops.currency]
+                    item = (ops.payment / quantity) * rate_for_date[ops.currency]
                     # add bought items to the list:
-                    item_list += [item] * ops.quantity_executed
+                    item_list += [item] * quantity
                 else:
                     logger.warning('unknown currency in position: ' + this_pos.name)
             elif ops.operation_type == 'Sell':
@@ -114,7 +146,7 @@ def creating_positions_objects():
     my_positions = list()
     for this_pos in positions.payload.positions:
         # type (stock, bond, etf or currency)
-        position_type = data_parser.get_position_type(this_pos.figi).value
+        position_type = data_parser.get_position_type(this_pos.figi)
 
         if this_pos.average_position_price.value > 0:
             if position_type == "Bond":
@@ -138,7 +170,8 @@ def creating_positions_objects():
             global market_cost_rub_cb
             # total value rub CB
             if this_pos.average_position_price.currency in supported_currencies:
-                market_cost_rub_cb = market_cost * rates_CB[today_date][this_pos.average_position_price.currency]
+                rate = data_parser.get_exchange_rate_db(today_date, this_pos.average_position_price.currency)
+                market_cost_rub_cb = market_cost * rate
             else:
                 market_cost_rub_cb = 'unknown currency'
 
@@ -294,12 +327,12 @@ def create_operations_objects():
     instruments_dictionary = {}
     for this_op in operations.payload.operations:
         date = datetime.date(this_op.date)
-        rate_for_date = rates_CB[date]
+        rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
         # ticker
         if this_op.figi != None:
             if this_op.figi not in instruments_dictionary:
                 instrument = data_parser.get_instrument_by_figi(this_op.figi)
-                ticker = instrument.payload.ticker
+                ticker = instrument.ticker
                 instruments_dictionary[this_op.figi] = ticker
             else:
                 ticker = instruments_dictionary[this_op.figi]
@@ -336,8 +369,8 @@ def calculate_operations_sums_rub(current_op_type):
         if op.op_type == current_op_type and op.op_payment != 0:
             if op.op_currency in supported_currencies:
                 date = datetime.date(op.op_date)  # op_date has a datetime.datetime type. I don't know, what a problem.
-                rate = rates_CB[date]
-                op_list.append(op.op_payment * rate[op.op_currency])
+                rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
+                op_list.append(op.op_payment * rate_for_date[op.op_currency])
             else:
                 logger.warning(f'Unsupported currency: {op.op_currency}')
     return sum(op_list)
@@ -381,8 +414,8 @@ def calculate_xirr(operations, portfolio_value):
         if (op.op_type == 'PayIn' or op.op_type == 'PayOut') and op.op_payment != 0:
             if op.op_currency in supported_currencies:
                 date = datetime.date(op.op_date)
-                rate = rates_CB[date]
-                dates_values[op.op_date] = -(op.op_payment * rate[op.op_currency])  # reverting the sign
+                rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
+                dates_values[op.op_date] = -(op.op_payment * rate_for_date[op.op_currency])  # reverting the sign
             else:
                 logger.warning(f'Unsupported currency: {op.op_currency}')
 
@@ -405,30 +438,36 @@ def calculate_xirr(operations, portfolio_value):
 
 if __name__ == '__main__':
 
-    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(asctime)s - %(message)s', datefmt='%H:%M:%S')
-    logger = logging.getLogger()
+    logging_level = logging.INFO
+
     if sys.argv[-1] in ['-q', '--quiet']:
-        logger.setLevel(logging.WARNING)
+        logging_level = logging.WARNING
     elif sys.argv[-1] in ['-d', '--debug']:
-        logger.setLevel(logging.DEBUG)
+        logging_level = logging.DEBUG
+
+    logging.basicConfig(level=logging_level,
+                        format='%(asctime)s [%(levelname)-3s] %(name)s: %(message)s',
+                        datefmt='%H:%M:%S')
+    logger = logging.getLogger()
+    data_parser.logger.setLevel(logging_level)
+    excel_builder.logger.setLevel(logging_level)
 
     start_time = time.time()
     tax_rate = 13  # percents
     logger.info('Start')
 
     # get accounts
-    accounts = data_parser.get_accounts(logger)
+    accounts = data_parser.get_accounts()
     for account in accounts.payload.accounts:
         logger.info(account)
 
         # from data_parser
-        positions, operations, market_rate_today, currencies = data_parser.get_api_data(account.broker_account_id, logger)
-        account_data = data_parser.parse_text_file(logger)
+        positions, operations, market_rate_today, currencies = data_parser.get_api_data(account.broker_account_id)
+        account_data = data_parser.parse_text_file()
         today_date = datetime.date(account_data['now_date'])
-        investing_period = data_parser.calc_investing_period(logger)
+        investing_period = data_parser.calc_investing_period()
         investing_period_str = f'{investing_period.years}y {investing_period.months}m {investing_period.days}d'
-        rates_CB = data_parser.loop_dates(logger)
-        rates_today_cb = rates_CB[today_date]
+        rates_today_cb = data_parser.get_exchange_rates_for_date_db(today_date)
 
         # from main
         cash_rub = get_portfolio_cash_rub()
@@ -463,6 +502,6 @@ if __name__ == '__main__':
         # EXCEL
         build_excel_file(account, my_positions, my_operations, rates_today_cb, market_rate_today,
                          average_percent, portfolio_cost_rub_market, sum_profile,
-                         investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate, logger)
+                         investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate)
 
     logger.info(f'done in {time.time() - start_time:.2f} seconds')
