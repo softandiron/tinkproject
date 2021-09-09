@@ -282,8 +282,8 @@ def calculate_parts():
             if type not in data.keys():
                 continue
             type_data = data[type]
-            type_data['currencyPart'] = type_data['value']/data['value']*100
-            type_data['totalPart'] = type_data['valueRub']/parts['totalValue']*100
+            type_data['currencyPart'] = type_data['value']/data['value']*100 if data['value'] > 0 else 0
+            type_data['totalPart'] = type_data['valueRub']/parts['totalValue']*100 if parts['totalValue'] > 0 else 0
         data['totalPart'] = data['valueRub']/parts['totalValue']
     return parts
 
