@@ -278,13 +278,13 @@ def calculate_parts():
         data = parts[currency]
         for type in assets_types:
             if type in parts.keys():
-                parts[type]['totalPart'] = parts[type]['valueRub']/parts['totalValue']
+                parts[type]['totalPart'] = parts[type]['valueRub']/parts['totalValue'] if parts['totalValue'] > 0 else 0
             if type not in data.keys():
                 continue
             type_data = data[type]
             type_data['currencyPart'] = type_data['value']/data['value']*100 if data['value'] > 0 else 0
             type_data['totalPart'] = type_data['valueRub']/parts['totalValue']*100 if parts['totalValue'] > 0 else 0
-        data['totalPart'] = data['valueRub']/parts['totalValue']
+        data['totalPart'] = data['valueRub']/parts['totalValue'] if parts['totalValue'] > 0 else 0
     return parts
 
 
