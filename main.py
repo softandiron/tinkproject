@@ -68,11 +68,42 @@ def calculate_ave_buy_price_rub(this_pos):
 
         if ops.figi == this_pos.figi and ops.payment != 0:
             if ops.operation_type == 'Buy' or ops.operation_type == 'BuyCard':
+                # Определим - был ли в истории сплит или обратный сплит
+                op_price = Decimal(ops.payment / ops.quantity_executed)
+                quantity = ops.quantity_executed
+                price = data_parser.get_figi_history_price(ops.figi, date)
+
+                logger.debug(f"Цена на {date} на бирже - {price}, в операции - {op_price}")
+                logger.debug(f"{ops}")
+
+                if ops.currency != this_pos.average_position_price.currency:
+                    # Если валюта расчетов за актив менялась - то не исользвать расчет сплита
+                    # Например AMHY и AMIG в августе 2021 года перешли с USD на RUB
+                    logger.debug(f"{this_pos.ticker} - произошла смена валют актива! "
+                                 f"{ops.currency} -> {this_pos.average_position_price.currency}")
+                elif price:
+                    # Определяем соотношение цен. Больше 1 - сплит акции, меньше 1 - обратный сплит
+                    # соответственно меняем количество купленных бумаг в пропорции
+                    ratio = Decimal(abs(op_price/price))
+                    logger.debug(f"Отношение цен - {ratio}")
+                    if round(ratio) > 1:
+                        ratio = round(ratio)
+                        logger.warning(f"Вероятно, был сплит {this_pos.ticker} - "
+                                       f"отношение цен 1:{ratio}")
+                        quantity = int(quantity*ratio)
+                    elif round(ratio, 2) < Decimal(0.95):
+                        # 0.95 - для погрешности в ценах свечей за день
+                        ratio_out = 1/ratio
+                        logger.warning(f"Вероятно, был обратный сплит {this_pos.ticker} - "
+                                       f"отношение цен {ratio_out:.0f}:1")
+                        quantity = int(quantity/ratio)
+
+                # Когда опередлились с количеством активов по заявленной цене - считаем
                 if ops.currency in supported_currencies:
                     # price for 1 item
-                    item = (ops.payment / ops.quantity_executed) * rate_for_date[ops.currency]
+                    item = (ops.payment / quantity) * rate_for_date[ops.currency]
                     # add bought items to the list:
-                    item_list += [item] * ops.quantity_executed
+                    item_list += [item] * quantity
                 else:
                     logger.warning('unknown currency in position: ' + this_pos.name)
             elif ops.operation_type == 'Sell':
