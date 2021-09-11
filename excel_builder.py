@@ -4,7 +4,14 @@ import logging
 import xlsxwriter
 import data_parser
 
-supported_currencies = ['RUB', 'USD', 'EUR']
+import currencies
+# For backward compatability - needs to be deprecated later
+# after merging parts tables
+supported_currencies = currencies.supported_currencies
+assets_types = ['Stock', 'Bond', 'Etf', 'Other', 'Currency']
+
+logger = logging.getLogger("ExBuild")
+logger.setLevel(logging.INFO)
 
 
 def get_color(num):
@@ -17,7 +24,7 @@ def get_color(num):
 
 def build_excel_file(account, my_positions, my_operations, rates_today_cb, market_rate_today,
                      average_percent, portfolio_cost_rub_market, sum_profile,
-                     investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate, logger=logging.getLogger()):
+                     investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate):
 
     logger.info('creating excel file..')
     excel_file_name = 'tinkoffReport_' + data_parser.account_data['now_date'].strftime('%Y.%b.%d') + '_'\
@@ -26,6 +33,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     worksheet_port = workbook.add_worksheet("Portfolio")
     worksheet_ops = workbook.add_worksheet("Operations")
     worksheet_divs = workbook.add_worksheet("Coupons and Dividends")
+    worksheet_parts = workbook.add_worksheet("Parts")
 
     # styles
     cell_format = {}
@@ -34,9 +42,14 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     cell_format['left'] = workbook.add_format({'align': 'left'})
     cell_format['bold_center'] = workbook.add_format({'align': 'center', 'bold': True})
     cell_format['bold_right'] = workbook.add_format({'align': 'right', 'bold': True})
-    cell_format['USD'] = workbook.add_format({'num_format': '## ### ##0.00   [$$-409]', 'align': 'right'})
-    cell_format['RUB'] = workbook.add_format({'num_format': '## ### ##0.00   [$₽-ru-RU]', 'align': 'right'})
-    cell_format['EUR'] = workbook.add_format({'num_format': '## ### ##0.00   [$€-x-euro1]', 'align': 'right'})
+    for currency, data in currencies.currencies_data.items():
+        cell_format[currency] = workbook.add_format({'num_format': data['num_format'],
+                                                     'align': 'right'})
+        cell_format[f'{currency}-bold'] = workbook.add_format({'num_format': data['num_format'],
+                                                               'align': 'right', 'bold': True})
+        cell_format[f'{currency}-bold-total'] = workbook.add_format({'num_format': data['num_format'],
+                                                                     'align': 'right', 'bold': True})
+        cell_format[f'{currency}-bold-total'].set_top(1)
     merge_format = {}
     merge_format['bold_center'] = workbook.add_format({'align': 'center', 'valign': 'vcenter', 'bold': True})
     merge_format['bold_right'] = workbook.add_format({'align': 'right', 'valign': 'vcenter', 'bold': True})
@@ -411,6 +424,141 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                                    'average monthly salary for the last 12 months:', merge_format['bold_right'])
         worksheet_divs.write(start_row, start_col + 3, round(sum(operations_in_last_12_months) / 12, 2), cell_format['RUB'])
 
+    def print_parts():
+        logger.info('printing portfolio parts statistics...')
+
+        # Comments in header
+        worksheet_parts.merge_range(2, 1, 2, 6,
+                                    'Структура долей активов',
+                                    merge_format['bold_center'])
+        worksheet_parts.merge_range(4, 1, 4, 6,
+                                    '* - расчет по курсу ЦБ на текущую дату',
+                                    merge_format['left_small'])
+        worksheet_parts.merge_range(34, 1, 34, 3,
+                                    'Данные для формирования диаграммы',
+                                    merge_format['bold_center'])
+        worksheet_parts.merge_range(35, 1, 35, 3,
+                                    'Выделить и выбрать диаграмму "Солнечные лучи/',
+                                    merge_format['left_small'])
+        worksheet_parts.merge_range(36, 1, 36, 3,
+                                    'Sunburst" или "Дерево/Treemap"',
+                                    merge_format['left_small'])
+        # xlsxwriter не позволяет делать sunburst или treemap диаграммы :(
+
+        start_col = 1
+        start_row = 6
+        # начальная строка для вывода данных для диаграмм по типу лучей солнца/Sunburst
+        # или Дерева/Treemap - к сожалению только таблица данных, xlsxwriter их не вставляет
+        chart_data_row = start_row + 32
+
+        # header - labels
+        worksheet_parts.set_column(start_col+2, start_col + 3, 14, cell_format['right'])
+
+        worksheet_parts.write(start_row, start_col + 2, 'Value', cell_format['bold_center'])
+        worksheet_parts.write(start_row, start_col + 3, 'Value RUB', cell_format['bold_center'])
+        worksheet_parts.write(start_row, start_col + 4, 'Currency %', cell_format['bold_center'])
+        worksheet_parts.write(start_row, start_col + 5, 'Total %', cell_format['bold_center'])
+        start_row += 1
+        cell_format['perc'] = workbook.add_format({'num_format': '0.0  ',
+                                                   'font_color': get_color(5)})  # >0 for green
+        cell_format['perc-bold'] = workbook.add_format({'num_format': '0.0 %', 'bold': True,
+                                                        'font_color': get_color(5),  # >0 for green
+                                                        'align': 'center'})
+        for currency in supported_currencies:
+            if currency not in sum_profile['parts'].keys():
+                continue
+            data = sum_profile['parts'][currency]
+            worksheet_parts.write(start_row, start_col, currency, cell_format['bold_center'])
+            worksheet_parts.write(start_row+1, start_col, data['totalPart'], cell_format['perc-bold'])
+
+            for type in assets_types:
+                worksheet_parts.write(start_row, start_col + 1, type, cell_format['bold_center'])
+                if type not in data.keys():
+                    # start_row += 1 # Если печатать строки с отсутствующими типами активов
+                    continue
+                type_data = data[type]
+
+                worksheet_parts.write(start_row, start_col + 2, type_data['value'], cell_format[currency])
+                worksheet_parts.write(start_row, start_col + 3, type_data['valueRub'], cell_format['RUB'])
+                worksheet_parts.write(start_row, start_col + 4, type_data['currencyPart'], cell_format['perc'])
+                worksheet_parts.write(start_row, start_col + 5, type_data['totalPart'], cell_format['perc'])
+
+                # data for chart
+                worksheet_parts.write(chart_data_row, start_col, currency, cell_format['bold_center'])
+                worksheet_parts.write(chart_data_row, start_col + 1, type, cell_format['bold_center'])
+                worksheet_parts.write(chart_data_row, start_col + 2, type_data['valueRub'], cell_format['RUB'])
+
+                start_row += 1
+                chart_data_row += 1
+
+            # Totals for the currency
+            worksheet_parts.write(start_row, start_col + 2,
+                                  data['value'], cell_format[f'{currency}-bold-total'])
+            worksheet_parts.write(start_row, start_col + 3,
+                                  data['valueRub'], cell_format['RUB-bold-total'])
+            # worksheet_parts.write(start_row, start_col + 4, type_data['currencyPart'], cell_format['perc'])
+
+            start_row += 3  # пропуск между валютами
+
+        start_col += 8
+        start_row = 6
+        # Table 2 - headers
+        for i, type in enumerate(assets_types):
+            worksheet_parts.write(start_row, start_col + 1 + i, type, cell_format['bold_center'])
+        start_row += 1
+        pie_data_start_row = start_row  # сохраняем строку с началом данных для графиков
+        currency_count_for_chart = 0  # пересчитаем количество валют, чтобы потом выводить графики
+        
+        for currency in supported_currencies:
+            if currency not in sum_profile['parts'].keys():
+                continue
+            data = sum_profile['parts'][currency]
+            worksheet_parts.write(start_row, start_col, currency, cell_format['bold_center'])
+
+            for i, type in enumerate(assets_types):
+                if type not in data.keys():
+                    continue
+                type_data = data[type]
+                worksheet_parts.write(start_row, start_col + 1 + i, type_data['totalPart'], cell_format['perc'])
+
+            worksheet_parts.write(start_row, start_col + 2 + i, data['totalPart'], cell_format['perc-bold'])
+            start_row += 1
+            currency_count_for_chart += 1
+        # Итоговая строка
+        for i, type in enumerate(assets_types):
+            if type not in sum_profile['parts'].keys():
+                continue
+            type_data = sum_profile['parts'][type]
+            worksheet_parts.write(start_row, start_col + 1 + i, type_data['totalPart'], cell_format['perc-bold'])
+
+        # Круговая диаграмма - структура активов по Валютам
+        chart = workbook.add_chart({'type': 'pie'})
+        chart.set_title({'name': 'Структура активов по валютам'})
+        data_col = start_col + len(assets_types) + 1 # следующая колонка после активов
+        chart.add_series({
+            'name': 'Валюты и их доли',
+            'categories': ['Parts', pie_data_start_row, start_col,
+                                    pie_data_start_row + currency_count_for_chart-1, start_col],
+            'values': ['Parts', pie_data_start_row, data_col,
+                                pie_data_start_row + currency_count_for_chart-1, data_col],
+            'data_labels': {'value': True, 'category': True, 'separator': "\n"},
+        })
+        worksheet_parts.insert_chart('J14', chart)
+
+        # Гистограмма с накоплением - труктура активов по типам и валютам
+        chart2 = workbook.add_chart({'type': 'column', 'subtype': 'stacked'})
+        chart2.set_title({'name': 'Структура активов по типам и валютам'})
+        categories = ['Parts', pie_data_start_row-1, start_col+1, pie_data_start_row-1, start_col+5]
+        for i in range(pie_data_start_row, pie_data_start_row+currency_count_for_chart):
+            chart2.add_series({
+                'name': ['Parts', i, start_col, i, start_col],
+                'categories': categories,
+                'values': ['Parts', i, start_col+1, i, start_col+5],
+                'data_labels': {'value': True},
+                'gap': 60,
+            })
+        worksheet_parts.insert_chart('J29', chart2)
+
     def print_clarification(s_row, s_col ):
         logger.info('printing clarification..')
         n = 0
@@ -473,6 +621,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     print_statistics(last_row_pos + 3, 1)
     print_clarification(last_row_pos + 18, 1)
     print_dividends_and_coupons()
+    print_parts()
 
     # finish Excel
     logger.info('Excel file composed! With name: '+excel_file_name)
