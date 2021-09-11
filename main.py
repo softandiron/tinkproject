@@ -13,9 +13,9 @@ import operator
 import scipy.optimize
 
 import data_parser
+
 import excel_builder
 from excel_builder import build_excel_file, supported_currencies, assets_types
-
 
 @dataclass
 class PortfolioPosition:
