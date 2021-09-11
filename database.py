@@ -186,6 +186,4 @@ def open_database_connection(db_file_name="assets_db.db"):
 
 if __name__ == '__main__':
     open_database_connection()
-    sql = "DELETE FROM rates WHERE currency=?"
-    cursor.execute(sql, ["BBG005H7MXN2",])
     close_database_connection()
