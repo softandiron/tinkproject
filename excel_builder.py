@@ -5,8 +5,14 @@ import xlsxwriter
 import data_parser
 from decimal import Decimal
 
-supported_currencies = ['RUB', 'USD', 'EUR']
+import currencies
+# For backward compatability - needs to be deprecated later
+# after merging parts tables
+supported_currencies = currencies.supported_currencies
 assets_types = ['Stock', 'Bond', 'Etf', 'Other', 'Currency']
+
+logger = logging.getLogger("ExBuild")
+logger.setLevel(logging.INFO)
 
 
 def get_color(num):
@@ -19,8 +25,7 @@ def get_color(num):
 
 def build_excel_file(account, my_positions, my_operations, rates_today_cb, market_rate_today,
                      average_percent, portfolio_cost_rub_market, sum_profile,
-                     investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate,
-                     logger=logging.getLogger()):
+                     investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate):
 
     logger.info('creating excel file..')
     excel_file_name = 'tinkoffReport_' + data_parser.account_data['now_date'].strftime('%Y.%b.%d') + '_'\
@@ -38,22 +43,14 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     cell_format['left'] = workbook.add_format({'align': 'left'})
     cell_format['bold_center'] = workbook.add_format({'align': 'center', 'bold': True})
     cell_format['bold_right'] = workbook.add_format({'align': 'right', 'bold': True})
-    cell_format['USD'] = workbook.add_format({'num_format': '## ### ##0.00   [$$-409]',
-                                              'align': 'right'})
-    cell_format['RUB'] = workbook.add_format({'num_format': '## ### ##0.00   [$₽-ru-RU]',
-                                              'align': 'right'})
-    cell_format['EUR'] = workbook.add_format({'num_format': '## ### ##0.00   [$€-x-euro1]',
-                                              'align': 'right'})
-    cell_format['USD-bold'] = workbook.add_format({'num_format': '## ### ##0.00   [$$-409]',
-                                                   'align': 'right', 'bold': True})
-    cell_format['RUB-bold'] = workbook.add_format({'num_format': '## ### ##0.00   [$₽-ru-RU]',
-                                                   'align': 'right', 'bold': True})
-    cell_format['EUR-bold'] = workbook.add_format({'num_format': '## ### ##0.00   [$€-x-euro1]',
-                                                   'align': 'right', 'bold': True})
-    cell_format['RUB-bold-total'] = workbook.add_format({'num_format': '## ### ##0.00   [$₽-ru-RU]',
-                                                         'align': 'right', 'bold': True})
-    cell_format['RUB-bold-total'].set_top(1)
-
+    for currency, data in currencies.currencies_data.items():
+        cell_format[currency] = workbook.add_format({'num_format': data['num_format'],
+                                                     'align': 'right'})
+        cell_format[f'{currency}-bold'] = workbook.add_format({'num_format': data['num_format'],
+                                                               'align': 'right', 'bold': True})
+        cell_format[f'{currency}-bold-total'] = workbook.add_format({'num_format': data['num_format'],
+                                                                     'align': 'right', 'bold': True})
+        cell_format[f'{currency}-bold-total'].set_top(1)
     merge_format = {}
     merge_format['bold_center'] = workbook.add_format({'align': 'center', 'valign': 'vcenter', 'bold': True})
     merge_format['bold_right'] = workbook.add_format({'align': 'right', 'valign': 'vcenter', 'bold': True})
@@ -557,11 +554,14 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                 start_row += 1
                 chart_data_row += 1
 
-            worksheet_parts.write(start_row, start_col + 2, data['value'], cell_format[currency+"-bold"])
-            worksheet_parts.write(start_row, start_col + 3, data['valueRub'], cell_format['RUB-bold'])
+            # Totals for the currency
+            worksheet_parts.write(start_row, start_col + 2,
+                                  data['value'], cell_format[f'{currency}-bold-total'])
+            worksheet_parts.write(start_row, start_col + 3,
+                                  data['valueRub'], cell_format['RUB-bold-total'])
             # worksheet_parts.write(start_row, start_col + 4, type_data['currencyPart'], cell_format['perc'])
 
-            start_row += 2  # пропуск между валютами
+            start_row += 3  # пропуск между валютами
 
         start_col += 8
         start_row = 6
