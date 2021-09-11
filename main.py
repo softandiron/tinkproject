@@ -14,6 +14,7 @@ import scipy.optimize
 
 import data_parser
 
+import excel_builder
 from excel_builder import build_excel_file, supported_currencies, assets_types
 
 @dataclass
@@ -59,13 +60,6 @@ def get_portfolio_cash_rub():
 
 # tax calculation
 def calculate_ave_buy_price_rub(this_pos):
-    base_log_level = logger.level
-    if this_pos.ticker == "FXDE1" or this_pos.ticker == "AM1IG":
-        logger.setLevel(logging.DEBUG)
-        instrument = data_parser.get_instrument_by_figi(this_pos.figi)
-        logging.debug(instrument)
-    else:
-        logger.setLevel(base_log_level)
     item_list = []
     # for this position's figi - add units into the list from operations
     for ops in reversed(operations.payload.operations):
@@ -134,12 +128,10 @@ def calculate_ave_buy_price_rub(this_pos):
                     del item_list[:number]
 
     # calculate average buying price in Rub
-    logger.debug(item_list)
     ave_buy_price_rub = 0
     if len(item_list) != 0:
         ave_buy_price_rub = sum(item_list) / len(item_list)
 
-    logger.setLevel(base_log_level)
     return abs(ave_buy_price_rub)
 
 
@@ -468,6 +460,7 @@ if __name__ == '__main__':
     accounts = data_parser.get_accounts()
     for account in accounts.payload.accounts:
         logger.info(account)
+
         # from data_parser
         positions, operations, market_rate_today, currencies = data_parser.get_api_data(account.broker_account_id)
         account_data = data_parser.parse_text_file()
