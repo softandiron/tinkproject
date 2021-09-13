@@ -321,6 +321,61 @@ def calculate_parts():
     return parts
 
 
+def calculate_iis_deduction():
+    """Расчет вычета по счетам ИИС
+
+    Returns:
+        None: если счет не ИИС
+        Dict: {int(год): {'pay_in': Decimal('взносы'), 'base': Decimal('налоговая база'),
+                          'deduct': Decimal('объем вычета')},
+               0: Decimal('сумма вычетов за все годы')}
+              }
+    """
+    if sum_profile['broker_account_type'] != "TinkoffIis":
+        logger.debug("account is not of IIS Type")
+        return None
+    logger.info("calculating IIS deductions data")
+
+    year_sums = {}
+    for operation in my_operations:
+        if operation.op_type != 'PayIn':
+            continue
+        # По состоянию на 08.09.2021 пополнять ИИС можно только рублями,
+        # Поэтому проверка формальная на случай - если вдруг это изменится
+        operation_year = int(operation.op_date.strftime('%Y'))
+        if operation.op_currency != "RUB":
+            logger.warning(f"Пополнение ИИС в {operation_year} году не в рублях!")
+            logger.warning(operation)
+            continue
+        if operation_year not in year_sums.keys():
+            year_sums[operation_year] = {'pay_in': operation.op_payment}
+        else:
+            year_sums[operation_year]["pay_in"] += operation.op_payment
+
+    deduct_total = 0
+    base_limit = Decimal(400000)  # Ограничение налоговой базы по закону
+    payin_limit = Decimal(1000000)  # Ограничение на взносы за год по закону
+    for year in sorted(year_sums.keys(), reverse=True):
+        payin = year_sums[year]["pay_in"]
+        year_sums[year]["pay_in"] = round(payin, 2)
+        if payin > payin_limit:
+            # если тут - то где-то что-то пошло ОЧЕНЬ неправильно!
+            logger.warning(f'Взносы на ИИС в {year}г. больше лимита на взносы'
+                           f' {payin_limit}р и составили {payin}р')
+        base = payin
+        if payin > base_limit:
+            base = base_limit
+            logger.info(f'Взносы на ИИС в {year}г. больше лимита на вычет {base_limit}р, '
+                        f'составили {payin}р. Налоговая база скорректирована.')
+        deduct = round(base * Decimal(0.13), 2)
+        year_sums[year]['base'] = base
+        year_sums[year]['deduct'] = deduct
+        deduct_total += deduct
+    year_sums[0] = deduct_total
+    logger.debug(year_sums)
+    return year_sums
+
+
 def create_operations_objects():
     logger.info('creating operations objects..')
     my_operations = list()
@@ -476,6 +531,7 @@ if __name__ == '__main__':
         portfolio_cost_rub_market = get_portfolio_cost_rub_market()
 
         sum_profile = {}
+        sum_profile['broker_account_type'] = account.broker_account_type.value
         sum_profile['portfolio_value_rub_cb'] = calculate_cb_value_rub_sum()
         sum_profile['pos_ave_buy_rub'] = calculate_sum_pos_ave_buy_rub()
         sum_profile['exp_tax'] = calculate_sum_exp_tax()
@@ -486,6 +542,8 @@ if __name__ == '__main__':
         sum_profile['parts'] = calculate_parts()
 
         my_operations = create_operations_objects()
+
+        sum_profile['iis_deduction'] = calculate_iis_deduction()
 
         xirr_value = calculate_xirr(my_operations, (portfolio_cost_rub_market - sum_profile['exp_tax']))
 

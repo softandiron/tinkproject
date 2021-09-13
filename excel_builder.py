@@ -425,6 +425,47 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                                    'average monthly salary for the last 12 months:', merge_format['bold_right'])
         worksheet_divs.write(start_row, start_col + 3, round(sum(operations_in_last_12_months) / 12, 2), cell_format['RUB'])
 
+    def print_iis_deduction_table():
+        if sum_profile['broker_account_type'] != "TinkoffIis":
+            logger.debug("account is not of IIS Type")
+            return
+        logger.info("printing IIS deductions table")
+
+        start_col = 9
+        start_row = 7
+        # Headers
+        worksheet_divs.merge_range(start_row-2, start_col,
+                                   start_row-2, start_col + 3,
+                                   "Расчет налогового вычета ИИС", merge_format['bold_center'])
+        worksheet_divs.set_column(start_col + 1, start_col + 3, 13)
+        # worksheet_divs.write(start_row, start_col, 'Year', cell_format['bold_center'])
+        worksheet_divs.write(start_row, start_col + 1, 'PayIns', cell_format['bold_center'])
+        worksheet_divs.write(start_row, start_col + 2, 'Tax Base', cell_format['bold_center'])
+        worksheet_divs.write(start_row, start_col + 3, 'Deduction', cell_format['bold_center'])
+
+        start_row += 1
+
+        year_sums = sum_profile['iis_deduction']
+
+        for year in sorted(year_sums.keys(), reverse=True):
+            if year == 0:
+                continue
+            payin = year_sums[year]['pay_in']
+            base = year_sums[year]['base']
+            deduct = year_sums[year]['deduct']
+
+            worksheet_divs.write(start_row, start_col, year, cell_format['bold_center'])
+            worksheet_divs.write(start_row, start_col + 1, payin, cell_format['RUB'])
+            worksheet_divs.write(start_row, start_col + 2, base, cell_format['RUB'])
+            worksheet_divs.write(start_row, start_col + 3, deduct, cell_format['RUB'])
+            start_row += 1
+
+        # for the line on cell top
+        deduct_total = year_sums[0]
+        worksheet_divs.write(start_row, start_col + 1, "", cell_format['RUB-bold-total'])
+        worksheet_divs.write(start_row, start_col + 2, "", cell_format['RUB-bold-total'])
+        worksheet_divs.write(start_row, start_col + 3, deduct_total, cell_format['RUB-bold-total'])
+
     def print_parts():
         logger.info('printing portfolio parts statistics...')
 
@@ -622,6 +663,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     print_statistics(last_row_pos + 3, 1)
     print_clarification(last_row_pos + 18, 1)
     print_dividends_and_coupons()
+    print_iis_deduction_table()
     print_parts()
 
     # finish Excel
