@@ -3,7 +3,6 @@
 import logging
 import xlsxwriter
 import data_parser
-from decimal import Decimal
 
 import currencies
 # For backward compatability - needs to be deprecated later
@@ -446,37 +445,15 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
 
         start_row += 1
 
-        year_sums = {}
-        for operation in my_operations:
-            if operation.op_type != 'PayIn':
-                continue
-            # По состоянию на 08.09.2021 пополнять ИИС можно только рублями,
-            # Поэтому проверка формальная на случай - если вдруг это изменится
-            if operation.op_currency != "RUB":
-                logger.warn(f"PayIn to IIS not in RUB. {operation}")
-                continue
-            operation_year = int(operation.op_date.strftime('%Y'))
-            if operation_year not in year_sums.keys():
-                year_sums[operation_year] = operation.op_payment
-            else:
-                year_sums[operation_year] += operation.op_payment
+        year_sums = sum_profile['iis_deduction']
 
-        deduct_total = 0
-        base_limit = Decimal(400000)  # Ограничение налоговой базы по закону
-        payin_limit = Decimal(1000000)  # Ограничение на взносы за год по закону
         for year in sorted(year_sums.keys(), reverse=True):
-            payin = year_sums[year]
-            if payin > payin_limit:
-                # если тут - то где-то что-то пошло ОЧЕНЬ неправильно!
-                logger.warn(f'Взносы на ИИС в {year}г. больше лимита на взносы'
-                            f' {payin_limit}р и составили {payin}р')
-            base = payin
-            if payin > base_limit:
-                base = base_limit
-                logger.info(f'Взносы на ИИС в {year}г. больше лимита на вычет {base_limit}р, '
-                            f'составили {payin}р. Налоговая база скорректирована.')
-            deduct = base * Decimal(0.13)
-            deduct_total += deduct
+            if year == 0:
+                continue
+            payin = year_sums[year]['pay_in']
+            base = year_sums[year]['base']
+            deduct = year_sums[year]['deduct']
+
             worksheet_divs.write(start_row, start_col, year, cell_format['bold_center'])
             worksheet_divs.write(start_row, start_col + 1, payin, cell_format['RUB'])
             worksheet_divs.write(start_row, start_col + 2, base, cell_format['RUB'])
@@ -484,6 +461,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
             start_row += 1
 
         # for the line on cell top
+        deduct_total = year_sums[0]
         worksheet_divs.write(start_row, start_col + 1, "", cell_format['RUB-bold-total'])
         worksheet_divs.write(start_row, start_col + 2, "", cell_format['RUB-bold-total'])
         worksheet_divs.write(start_row, start_col + 3, deduct_total, cell_format['RUB-bold-total'])
@@ -555,11 +533,14 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                 start_row += 1
                 chart_data_row += 1
 
-            worksheet_parts.write(start_row, start_col + 2, data['value'], cell_format[currency+"-bold"])
-            worksheet_parts.write(start_row, start_col + 3, data['valueRub'], cell_format['RUB-bold'])
+            # Totals for the currency
+            worksheet_parts.write(start_row, start_col + 2,
+                                  data['value'], cell_format[f'{currency}-bold-total'])
+            worksheet_parts.write(start_row, start_col + 3,
+                                  data['valueRub'], cell_format['RUB-bold-total'])
             # worksheet_parts.write(start_row, start_col + 4, type_data['currencyPart'], cell_format['perc'])
 
-            start_row += 2  # пропуск между валютами
+            start_row += 3  # пропуск между валютами
 
         start_col += 8
         start_row = 6
@@ -620,7 +601,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
             })
         worksheet_parts.insert_chart('J29', chart2)
 
-    def print_clarification(s_row, s_col):
+    def print_clarification(s_row, s_col ):
         logger.info('printing clarification..')
         n = 0
         lines = [

@@ -118,6 +118,35 @@ def get_current_market_price(figi, depth=0, max_age=10*60):
     return price
 
 
+def get_figi_history_price(figi, date=datetime.now()):
+    # возвращает историческую цену актива
+    # опеределяется запросом свечи за день и усреднением верхней и нижней цены
+    date = datetime(date.year, date.month, date.day)
+    if date == datetime.now().date():
+        return get_current_market_price(figi)
+    price = database.get_exchange_rate(date, figi)
+    if price:
+        # Если цена есть в локальной базе - не надо запрашивать API
+        return price
+    try:
+        date_to = date + timedelta(days=1)
+        client = tinvest.SyncClient(account_data['my_token'])
+        result = client.get_market_candles(figi, date, date_to, tinvest.CandleResolution.day)
+        price = (result.payload.candles[0].h+result.payload.candles[0].l)/2
+    except tinvest.exceptions.TooManyRequestsError:
+        logger.warning("Превышена частота запросов API. Пауза выполнения.")
+        time.sleep(0.5)
+        return get_figi_history_price(figi, date)
+    except IndexError:
+        instrument = get_instrument_by_figi(figi)
+        logger.error("Что-то не то со свечами! В этот день было IPO? Или размещение средств?")
+        logger.error(f"{date} - {figi} - {instrument.ticker}")
+        logger.error(result)
+        return None
+    database.put_exchange_rate(date, figi, price)
+    return price
+
+
 def get_position_type(figi, max_age=7*24*60*60):
     # max_age - timeout for getting old, default - 1 week
     instrument = get_instrument_by_figi(figi, max_age)

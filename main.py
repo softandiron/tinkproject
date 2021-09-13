@@ -13,9 +13,9 @@ import operator
 import scipy.optimize
 
 import data_parser
+
 import excel_builder
 from excel_builder import build_excel_file, supported_currencies, assets_types
-
 
 @dataclass
 class PortfolioPosition:
@@ -68,11 +68,42 @@ def calculate_ave_buy_price_rub(this_pos):
 
         if ops.figi == this_pos.figi and ops.payment != 0:
             if ops.operation_type == 'Buy' or ops.operation_type == 'BuyCard':
+                # Определим - был ли в истории сплит или обратный сплит
+                op_price = Decimal(ops.payment / ops.quantity_executed)
+                quantity = ops.quantity_executed
+                price = data_parser.get_figi_history_price(ops.figi, date)
+
+                logger.debug(f"Цена на {date} на бирже - {price}, в операции - {op_price}")
+                logger.debug(f"{ops}")
+
+                if ops.currency != this_pos.average_position_price.currency:
+                    # Если валюта расчетов за актив менялась - то не исользвать расчет сплита
+                    # Например AMHY и AMIG в августе 2021 года перешли с USD на RUB
+                    logger.debug(f"{this_pos.ticker} - произошла смена валют актива! "
+                                 f"{ops.currency} -> {this_pos.average_position_price.currency}")
+                elif price:
+                    # Определяем соотношение цен. Больше 1 - сплит акции, меньше 1 - обратный сплит
+                    # соответственно меняем количество купленных бумаг в пропорции
+                    ratio = Decimal(abs(op_price/price))
+                    logger.debug(f"Отношение цен - {ratio}")
+                    if round(ratio) > 1:
+                        ratio = round(ratio)
+                        logger.warning(f"Вероятно, был сплит {this_pos.ticker} - "
+                                       f"отношение цен 1:{ratio}")
+                        quantity = int(quantity*ratio)
+                    elif round(ratio, 2) < Decimal(0.95):
+                        # 0.95 - для погрешности в ценах свечей за день
+                        ratio_out = 1/ratio
+                        logger.warning(f"Вероятно, был обратный сплит {this_pos.ticker} - "
+                                       f"отношение цен {ratio_out:.0f}:1")
+                        quantity = int(quantity/ratio)
+
+                # Когда опередлились с количеством активов по заявленной цене - считаем
                 if ops.currency in supported_currencies:
                     # price for 1 item
-                    item = (ops.payment / ops.quantity_executed) * rate_for_date[ops.currency]
+                    item = (ops.payment / quantity) * rate_for_date[ops.currency]
                     # add bought items to the list:
-                    item_list += [item] * ops.quantity_executed
+                    item_list += [item] * quantity
                 else:
                     logger.warning('unknown currency in position: ' + this_pos.name)
             elif ops.operation_type == 'Sell':
@@ -280,14 +311,69 @@ def calculate_parts():
         data = parts[currency]
         for type in assets_types:
             if type in parts.keys():
-                parts[type]['totalPart'] = parts[type]['valueRub']/parts['totalValue']
+                parts[type]['totalPart'] = parts[type]['valueRub']/parts['totalValue'] if parts['totalValue'] > 0 else 0
             if type not in data.keys():
                 continue
             type_data = data[type]
-            type_data['currencyPart'] = type_data['value']/data['value']*100
-            type_data['totalPart'] = type_data['valueRub']/parts['totalValue']*100
-        data['totalPart'] = data['valueRub']/parts['totalValue']
+            type_data['currencyPart'] = type_data['value']/data['value']*100 if data['value'] > 0 else 0
+            type_data['totalPart'] = type_data['valueRub']/parts['totalValue']*100 if parts['totalValue'] > 0 else 0
+        data['totalPart'] = data['valueRub']/parts['totalValue'] if parts['totalValue'] > 0 else 0
     return parts
+
+
+def calculate_iis_deduction():
+    """Расчет вычета по счетам ИИС
+
+    Returns:
+        None: если счет не ИИС
+        Dict: {int(год): {'pay_in': Decimal('взносы'), 'base': Decimal('налоговая база'),
+                          'deduct': Decimal('объем вычета')},
+               0: Decimal('сумма вычетов за все годы')}
+              }
+    """
+    if sum_profile['broker_account_type'] != "TinkoffIis":
+        logger.debug("account is not of IIS Type")
+        return None
+    logger.info("calculating IIS deductions data")
+
+    year_sums = {}
+    for operation in my_operations:
+        if operation.op_type != 'PayIn':
+            continue
+        # По состоянию на 08.09.2021 пополнять ИИС можно только рублями,
+        # Поэтому проверка формальная на случай - если вдруг это изменится
+        operation_year = int(operation.op_date.strftime('%Y'))
+        if operation.op_currency != "RUB":
+            logger.warning(f"Пополнение ИИС в {operation_year} году не в рублях!")
+            logger.warning(operation)
+            continue
+        if operation_year not in year_sums.keys():
+            year_sums[operation_year] = {'pay_in': operation.op_payment}
+        else:
+            year_sums[operation_year]["pay_in"] += operation.op_payment
+
+    deduct_total = 0
+    base_limit = Decimal(400000)  # Ограничение налоговой базы по закону
+    payin_limit = Decimal(1000000)  # Ограничение на взносы за год по закону
+    for year in sorted(year_sums.keys(), reverse=True):
+        payin = year_sums[year]["pay_in"]
+        year_sums[year]["pay_in"] = round(payin, 2)
+        if payin > payin_limit:
+            # если тут - то где-то что-то пошло ОЧЕНЬ неправильно!
+            logger.warning(f'Взносы на ИИС в {year}г. больше лимита на взносы'
+                           f' {payin_limit}р и составили {payin}р')
+        base = payin
+        if payin > base_limit:
+            base = base_limit
+            logger.info(f'Взносы на ИИС в {year}г. больше лимита на вычет {base_limit}р, '
+                        f'составили {payin}р. Налоговая база скорректирована.')
+        deduct = round(base * Decimal(0.13), 2)
+        year_sums[year]['base'] = base
+        year_sums[year]['deduct'] = deduct
+        deduct_total += deduct
+    year_sums[0] = deduct_total
+    logger.debug(year_sums)
+    return year_sums
 
 
 def create_operations_objects():
@@ -456,6 +542,8 @@ if __name__ == '__main__':
         sum_profile['parts'] = calculate_parts()
 
         my_operations = create_operations_objects()
+
+        sum_profile['iis_deduction'] = calculate_iis_deduction()
 
         xirr_value = calculate_xirr(my_operations, (portfolio_cost_rub_market - sum_profile['exp_tax']))
 
