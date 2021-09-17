@@ -1,5 +1,7 @@
+import math
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
+from dataclasses import dataclass
 
 import logging
 from decimal import Decimal
@@ -7,6 +9,40 @@ from tinvest.schemas import SearchMarketInstrument
 
 db_logger = logging.getLogger("DB")
 db_logger.setLevel(logging.INFO)
+
+
+@dataclass
+class PortfolioHistoryObject:
+    account_id: str
+    figi: str
+    buy_date: datetime
+    buy_ammount: int
+    buy_price: Decimal
+    buy_currency: str
+    sell_date: datetime = None
+    sell_ammount: int = None
+    sell_price: Decimal = None
+    sell_currency: str = None
+    rowid: int = 0
+
+    def days(self) -> int:
+        calc_date = datetime.now()
+        if self.sell_date is not None:
+            # Если установлена дата продажи - показывает сколько активном владели
+            calc_date = self.sell_date
+        delta = calc_date - self.buy_date
+        return delta.days
+
+    def years_f(self) -> Decimal:
+        # Возвращает количество годов с дробью, с примерной поправкой на високосные годы
+        # TODO: доделать сравнение по датам в году - тогда будет точнее - а надо?
+        days = self.days()
+        return Decimal(round(days / 365.2425, 2))
+
+    def years(self) -> int:
+        # Возвращает полное количество годов, отбрасывая дробную часть
+        # Для налогов важно полное количество лет владения
+        return math.floor(self.years_f())
 
 
 def init_database():
@@ -57,6 +93,31 @@ def init_database():
         sqlite_connection.commit()
     except Exception as e:
         db_logger.error("Error creating marketprice table", e)
+
+    db_logger.debug("Checking portfolio history table")
+    port_history_sql = """CREATE TABLE IF NOT EXISTS port_history (
+        account_id TEXT,
+        figi TEXT,
+        buy_date TEXT,
+        buy_ammount INTEGER,
+        buy_price TEXT,
+        buy_currency TEXT,
+        sell_date TEXT,
+        sell_ammount INTEGER,
+        sell_price TEXT,
+        sell_currency TEXT,
+        days INTEGER
+    );"""
+    port_history_idx_sql = """CREATE INDEX IF NOT EXISTS idx_port_history
+    ON port_history (account_id, figi);
+    """
+    try:
+        cursor.execute(port_history_sql)
+        sqlite_connection.commit()
+        cursor.execute(port_history_idx_sql)
+        sqlite_connection.commit()
+    except Exception as e:
+        db_logger.error("Error creating portfolio history table", e)
 
 
 def close_database_connection():
@@ -169,6 +230,53 @@ def get_market_price_by_figi(figi, max_age=10*60):
     return Decimal(row['price'])
 
 
+def get_portfolio_history_records(account_id, figi):
+    db_logger.info(f"Get portfolio history for {figi} on account {account_id}")
+    sql_s = ("SELECT rowid, * FROM port_history where account_id=? and figi = ?"
+             " ORDER BY  buy_date, sell_date;")
+    try:
+        rows = cursor.execute(sql_s, (account_id, figi)).fetchall()
+    except sqlite3.Error as e:
+        db_logger.error("Error getting portfolio history", e)
+    out = []
+    for row in rows:
+        obj = PortfolioHistoryObject(row['account_id'], row['figi'],
+                                     datetime.fromisoformat(row['buy_date']), 
+                                     int(row['buy_ammount']), Decimal(row['buy_price']),
+                                     row['buy_currency'], rowid=row['rowid'])
+        if row['sell_date'] is not None:
+            obj.sell_date = datetime.fromisoformat(row['sell_date'])
+            obj.sell_ammountint = row['sell_ammount']
+            obj.sell_price = Decimal(row['sell_price'])
+            obj.sell_currency = row['sell_currency']
+        out.append(obj)
+    return out
+
+
+def put_portfolio_history_record(account_id, figi,
+                                 buy_date, buy_ammount, buy_price, buy_currency,
+                                 sell_date=None, sell_ammount=None,
+                                 sell_price=None, sell_currency=None,
+                                 days=0, rowid=0):
+    db_logger.debug(f"Put portfolio history record for {figi} on {account_id}")
+    buy_price = str(buy_price)
+    sql = """INSERT OR REPLACE INTO port_history (rowid, account_id,
+        figi, buy_date, buy_ammount, buy_price, buy_currency,
+        sell_date, sell_ammount, sell_price, sell_currency, days)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"""
+    try:
+        cursor.execute(sql, (rowid, account_id, figi,
+                             buy_date, buy_ammount, buy_price, buy_currency,
+                             sell_date, sell_ammount, sell_price, sell_currency,
+                             days)
+                       )
+        sqlite_connection.commit()
+    except sqlite3.Error as e:
+        db_logger.error("Portfolio insertion error", e)
+        return False
+    return True
+
+
 def open_database_connection(db_file_name="assets_db.db"):
     global sqlite_connection
     global cursor
@@ -185,5 +293,25 @@ def open_database_connection(db_file_name="assets_db.db"):
 
 
 if __name__ == '__main__':
+    logging_level = logging.DEBUG
+    logging.basicConfig(level=logging_level,
+                        format='%(asctime)s [%(levelname)-3s] %(name)s: %(message)s',
+                        datefmt='%H:%M:%S')
+    db_logger.setLevel(logging_level)
+
     open_database_connection()
+
+    test_acc = 121313
+    test_figi = "TEST_FIGI"
+    history = get_portfolio_history_records(test_acc, test_figi)
+    print(history[2])
+    print(history[2].days())
+    print(history[2].years_f())
+    print(history[2].years())
+    print(history[0])
+    print(history[0].days())
+    print(history[0].years_f())
+    print(history[0].years())
+    # put_portfolio_history_record(test_acc, test_figi, datetime(2021, 1, 1), 3, Decimal(12.0), "MAX", rowid=1,
+    #                             sell_date=datetime.now(), sell_ammount=12, sell_price=23, sell_currency="USD")
     close_database_connection()
