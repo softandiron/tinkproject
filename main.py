@@ -11,8 +11,13 @@ from dataclasses import dataclass
 from decimal import Decimal
 import operator
 import scipy.optimize
+from pprint import pprint
+from copy import copy
 
 import data_parser
+
+from data_parser import database
+from database import PortfolioHistoryObject
 
 import excel_builder
 from excel_builder import build_excel_file, supported_currencies, assets_types
@@ -491,6 +496,80 @@ def calculate_xirr(operations, portfolio_value):
     return x
 
 
+def parse_portfolio_history():
+    for operation in reversed(operations.payload.operations):
+        # Сбросить базу истории - вероятно не надо, т.к. спрашиваем есть ли операция
+        operation_id = operation.id
+        if operation_id == "CT210712000000318603":
+            print(operation)
+        res = True
+        if operation.operation_type in ['Buy', 'BuyCard', 'Sell']:
+            # вероятно добавить Repayment - она же убирает из портфолио бумагу
+            # Проверка только операций, которые нам нужны - экономия запросов в базу
+            res = database.check_portfolio_history_for_id(operation_id)
+            # logger.error(f"Запись по операции {operation_id} {operation.operation_type} - {res}")
+        # Если купил - добавить в историю
+        if operation.operation_type in ['Buy', 'BuyCard'] and not res:
+            # Если про операцию в базе нет данных - надо внести ее
+            # Как проверять на сплиты????
+            buy_ammount = operation.quantity_executed
+            hist_object = PortfolioHistoryObject(account.broker_account_id, operation.figi,
+                                                 operation.date, buy_ammount,
+                                                 operation.price, operation.currency,
+                                                 operation_id)
+            if buy_ammount == 0:
+                # если заявка не исполнена - сразу записать пустую запись
+                hist_object.buy_price = 0
+                hist_object.sell_price = 0
+                hist_object.sell_ammount = 0
+                hist_object.sell_date = hist_object.buy_date
+                hist_object.sell_currency = hist_object.buy_currency
+                hist_object.sell_operation_id = hist_object.buy_operation_id
+            database.put_portfolio_history_record(hist_object)
+            pass
+        # Если продал - вытащить из истории, и посмотреть, как перезаписать.
+        elif operation.operation_type in ["Sell", ] and not res:
+            print(operation)
+            quantity_left = operation.quantity_executed
+            # найти операции покупки
+            hist_objects = database.get_portfolio_history_records(account.broker_account_id, operation.figi)
+            # print(hist_objects)
+            for h_object in hist_objects:
+                if h_object.sell_date is not None:
+                    # если записана продажа - пропускаем эту запись
+                    logging.error(f"В записи {h_object.rowid} - уже все продано")
+                    continue
+                # Если есть непроданное - узнать, сколько есть лотов
+                if h_object.buy_ammount >= quantity_left:
+                    # если куплено больше, чем продано:
+                    new_h_object = copy(h_object)
+                    new_h_object.rowid = None
+                    new_h_object.buy_ammount = new_h_object.buy_ammount - quantity_left
+                    if new_h_object.buy_ammount > 0:
+                        database.put_portfolio_history_record(new_h_object)
+                    print(new_h_object)
+                    print(h_object)
+                    h_object.buy_ammount = quantity_left
+                    h_object.sell_ammount = quantity_left
+                    h_object.sell_date = operation.date
+                    h_object.sell_price = operation.price
+                    h_object.sell_currency = operation.currency
+                    h_object.sell_operation_id = operation.id
+                    database.put_portfolio_history_record(h_object)
+                else:
+                    # вот тут самое интересное - надо в цикл while все оборачивать...
+                    # а проверить пока не на чем - придется генерить...
+                    # сделаю сначала вывод, чтобы легче было отслеживать
+                    pass
+
+            # exit()
+            pass
+        elif operation.operation_type not in ["Buy", 'BuyCard', 'Sell', "BrokerCommission", 'PayIn',
+                                              'Dividend', 'TaxDividend', 'Coupon', 'Repayment']:
+            logging.critical(operation.operation_type)
+        pass
+    # exit()
+
 if __name__ == '__main__':
 
     logging_level = logging.INFO
@@ -540,6 +619,9 @@ if __name__ == '__main__':
         sum_profile['profit_tax'] = calculate_profit_tax()
         sum_profile['loss_tax'] = calculate_loss_tax()
         sum_profile['parts'] = calculate_parts()
+
+        parse_portfolio_history()
+        sum_profile['history'] = database.get_portfolio_history_records(account.broker_account_id)
 
         my_operations = create_operations_objects()
 

@@ -1,4 +1,5 @@
 import math
+import pytz
 import sqlite3
 from datetime import datetime, timedelta
 from dataclasses import dataclass
@@ -19,14 +20,16 @@ class PortfolioHistoryObject:
     buy_ammount: int
     buy_price: Decimal
     buy_currency: str
+    buy_operation_id: str
     sell_date: datetime = None
     sell_ammount: int = None
     sell_price: Decimal = None
     sell_currency: str = None
-    rowid: int = 0
+    sell_operation_id: str = None
+    rowid: int = None
 
     def days(self) -> int:
-        calc_date = datetime.now()
+        calc_date = datetime.now(pytz.timezone("Europe/Moscow"))
         if self.sell_date is not None:
             # Если установлена дата продажи - показывает сколько активном владели
             calc_date = self.sell_date
@@ -102,19 +105,26 @@ def init_database():
         buy_ammount INTEGER,
         buy_price TEXT,
         buy_currency TEXT,
+        buy_operation_id TEXT,
         sell_date TEXT,
         sell_ammount INTEGER,
         sell_price TEXT,
         sell_currency TEXT,
-        days INTEGER
+        sell_operation_id TEXT
     );"""
     port_history_idx_sql = """CREATE INDEX IF NOT EXISTS idx_port_history
-    ON port_history (account_id, figi);
+    ON port_history (account_id, figi);"""
+    port_history_idx_sql_buy_id = """CREATE INDEX IF NOT EXISTS idx_port_history_buy_id
+    ON port_history (buy_operation_id);
+    """
+    port_history_idx_sql_sell_id = """CREATE INDEX IF NOT EXISTS idx_port_history_sell_id
+    ON port_history (sell_operation_id);
     """
     try:
         cursor.execute(port_history_sql)
-        sqlite_connection.commit()
         cursor.execute(port_history_idx_sql)
+        cursor.execute(port_history_idx_sql_buy_id)
+        cursor.execute(port_history_idx_sql_sell_id)
         sqlite_connection.commit()
     except Exception as e:
         db_logger.error("Error creating portfolio history table", e)
@@ -230,9 +240,9 @@ def get_market_price_by_figi(figi, max_age=10*60):
     return Decimal(row['price'])
 
 
-def get_portfolio_history_records(account_id, figi):
+def get_portfolio_history_records(account_id, figi="%"):
     db_logger.info(f"Get portfolio history for {figi} on account {account_id}")
-    sql_s = ("SELECT rowid, * FROM port_history where account_id=? and figi = ?"
+    sql_s = ("SELECT rowid, * FROM port_history where account_id=? and figi LIKE ?"
              " ORDER BY  buy_date, sell_date;")
     try:
         rows = cursor.execute(sql_s, (account_id, figi)).fetchall()
@@ -243,38 +253,49 @@ def get_portfolio_history_records(account_id, figi):
         obj = PortfolioHistoryObject(row['account_id'], row['figi'],
                                      datetime.fromisoformat(row['buy_date']), 
                                      int(row['buy_ammount']), Decimal(row['buy_price']),
-                                     row['buy_currency'], rowid=row['rowid'])
+                                     row['buy_currency'], row['buy_operation_id'],
+                                     rowid=row['rowid'])
         if row['sell_date'] is not None:
             obj.sell_date = datetime.fromisoformat(row['sell_date'])
-            obj.sell_ammountint = row['sell_ammount']
+            obj.sell_ammount = row['sell_ammount']
             obj.sell_price = Decimal(row['sell_price'])
             obj.sell_currency = row['sell_currency']
+            obj.sell_operation_id = row['sell_operation_id']
         out.append(obj)
     return out
 
 
-def put_portfolio_history_record(account_id, figi,
-                                 buy_date, buy_ammount, buy_price, buy_currency,
-                                 sell_date=None, sell_ammount=None,
-                                 sell_price=None, sell_currency=None,
-                                 days=0, rowid=0):
-    db_logger.debug(f"Put portfolio history record for {figi} on {account_id}")
-    buy_price = str(buy_price)
+def put_portfolio_history_record(hist_object: PortfolioHistoryObject):
+    db_logger.debug(f"Put portfolio history record for {hist_object.figi} "
+                    "on {hist_object.account_id}")
     sql = """INSERT OR REPLACE INTO port_history (rowid, account_id,
-        figi, buy_date, buy_ammount, buy_price, buy_currency,
-        sell_date, sell_ammount, sell_price, sell_currency, days)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"""
+        figi, buy_date, buy_ammount, buy_price, buy_currency, buy_operation_id,
+        sell_date, sell_ammount, sell_price, sell_currency, sell_operation_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"""
     try:
-        cursor.execute(sql, (rowid, account_id, figi,
-                             buy_date, buy_ammount, buy_price, buy_currency,
-                             sell_date, sell_ammount, sell_price, sell_currency,
-                             days)
+        cursor.execute(sql, (hist_object.rowid, hist_object.account_id, hist_object.figi,
+                             hist_object.buy_date, hist_object.buy_ammount,
+                             str(hist_object.buy_price), hist_object.buy_currency,
+                             hist_object.buy_operation_id,
+                             hist_object.sell_date, hist_object.sell_ammount,
+                             str(hist_object.sell_price), hist_object.sell_currency,
+                             hist_object.sell_operation_id)
                        )
         sqlite_connection.commit()
     except sqlite3.Error as e:
-        db_logger.error("Portfolio insertion error", e)
+        db_logger.critical("Portfolio insertion error", e)
         return False
     return True
+
+
+def check_portfolio_history_for_id(operation_id):
+    db_logger.info(f"Check portfolio history for operation {operation_id}")
+    sql_s = "SELECT rowid FROM port_history where buy_operation_id=? or sell_operation_id=?;"
+    row = cursor.execute(sql_s, (operation_id, operation_id)).fetchone()
+    logging.debug(row)
+    if row:
+        return True
+    return False
 
 
 def open_database_connection(db_file_name="assets_db.db"):
