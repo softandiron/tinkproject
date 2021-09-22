@@ -35,6 +35,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     worksheet_ops = workbook.add_worksheet("Operations")
     worksheet_divs = workbook.add_worksheet("Coupons and Dividends")
     worksheet_parts = workbook.add_worksheet("Parts")
+    worksheet_hist = workbook.add_worksheet("History")
 
     # styles
     cell_format = {}
@@ -601,6 +602,76 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
             })
         worksheet_parts.insert_chart('J29', chart2)
 
+    def print_history():
+        logger.info('printing portfolio history...')
+
+        # Comments in header
+        worksheet_hist.merge_range(2, 1, 2, 6,
+                                    'История активов в портфеле',
+                                    merge_format['bold_center'])
+
+        start_col = 1
+        start_row = 6
+
+        cols = [
+            # ['name', width, 'format', hidden],
+            ['Ticker', 14, 'bold_center', False],
+            ['Buy date', 14, 'bold_center', False],
+            ['Buy ammount', 10, 'bold_center', False],
+            ['Buy price', 14, 'bold_center', False],
+            ['Buy total CB', 14, 'bold_center', False],
+            ['Buy commission', 14, 'bold_center', False],
+            ['Sell date', 14, 'bold_center', False],
+            ['Sell ammount', 10, 'bold_center', False],
+            ['Sell price', 14, 'bold_center', False],
+            ['Sell total CB', 14, 'bold_center', False],
+            ['Sell commission', 14, 'bold_center', False],
+            ['Days', 8, 'bold_center', False, 'Количество дней владения'],
+            ['Years', 8, 'bold_center', False, 'Целое количество лет владения'],
+            ['Tax base', 14, 'bold_center', False,
+             'Сумма продажи - Сумма покупки - Комиссия покупки - Комиссия продажи'],
+        ]
+        set_columns_and_headings(worksheet_hist, cols, start_row, start_col)
+
+        worksheet_hist.freeze_panes(start_row+1, start_col+1)
+
+        start_row += 1
+
+        for record in sum_profile['history']:
+            if record.figi == "BBG0013HGFT4":
+                continue
+            # worksheet_parts.write(start_row, start_col + 2, type_data['value'], cell_format[currency])
+            worksheet_hist.write(start_row, start_col-1, record.figi)
+            worksheet_hist.write(start_row, start_col, record.ticker())
+            worksheet_hist.write(start_row, start_col+1, record.buy_date.strftime("%Y-%m-%d"))
+            if record.buy_ammount == 0:
+                worksheet_hist.write(start_row, start_col+2, "Заявка не выполнена")
+                start_row += 1
+                continue
+            worksheet_hist.write(start_row, start_col+2, record.buy_ammount)
+            worksheet_hist.write(start_row, start_col+3, record.buy_price, cell_format[record.buy_currency])
+            worksheet_hist.write(start_row, start_col+4, record.buy_total_rub(), cell_format["RUB"])
+            worksheet_hist.write(start_row, start_col+5, record.buy_commission, cell_format[record.buy_currency])
+
+            worksheet_hist.write(start_row, start_col+11, record.days())
+            worksheet_hist.write(start_row, start_col+12, record.years())
+
+            if record.sell_date is not None:
+                worksheet_hist.write(start_row, start_col+6, record.sell_date.strftime("%Y-%m-%d"))
+                worksheet_hist.write(start_row, start_col+7, record.sell_ammount)
+                worksheet_hist.write(start_row, start_col+8, record.sell_price, cell_format[record.sell_currency])
+                worksheet_hist.write(start_row, start_col+9, record.sell_total_rub(), cell_format["RUB"])
+
+                worksheet_hist.write(start_row, start_col+10, record.sell_commission, cell_format[record.sell_currency])
+                worksheet_hist.write(start_row, start_col+17, record.sell_operation_id)
+
+            worksheet_hist.write(start_row, start_col+13, record.tax_base(), cell_format["RUB"])
+
+            worksheet_hist.write(start_row, start_col+15, record.rowid)
+            worksheet_hist.write(start_row, start_col+16, record.buy_operation_id)
+
+            start_row += 1
+
     def print_clarification(s_row, s_col ):
         logger.info('printing clarification..')
         n = 0
@@ -658,6 +729,35 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                                        merge_format['left'])
             n += 1 + line[2]
 
+    def set_columns_and_headings(worksheet, columns=[], heading_row=4, start_col=2):
+        """Проставление ширины и заголовков колонок, их видимости.
+
+        Args:
+            worksheet: лист Excel для выполнения
+            columns (list, optional): Список колонок в формате
+                                      ['name', width, 'format', hidden, 'tooltip message']
+            heading_row (int, optional): Строка расположения заголовков колонок. Defaults to 4.
+            start_col (int, optional): С какой колонки начать. Defaults to 2.
+        """
+        column_number = start_col
+        for column in columns:
+            column_name = column[0]
+            width = int(column[1])
+            heding_format = None
+            if column[2] in cell_format.keys():
+                heding_format = cell_format[column[2]]
+            # Пишем заглавие колонки
+            worksheet.write(heading_row, column_number, column_name, heding_format)
+            # Устанавливаем ширину и видимость колонки
+            worksheet.set_column(column_number, column_number, width,
+                                 options={'hidden': column[3]})
+            try:
+                worksheet.write_comment(heading_row, column_number, column[4], {'font_size': 10})
+            except:
+                pass
+            column_number += 1
+        pass
+
     last_row_pos = print_portfolio(1, 1)
     print_operations(1, 2)
     print_statistics(last_row_pos + 3, 1)
@@ -665,6 +765,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     print_dividends_and_coupons()
     print_iis_deduction_table()
     print_parts()
+    print_history()
 
     # finish Excel
     logger.info('Excel file composed! With name: '+excel_file_name)
