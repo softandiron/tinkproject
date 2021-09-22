@@ -69,11 +69,13 @@ def init_database():
         buy_price TEXT,
         buy_currency TEXT,
         buy_operation_id TEXT,
+        buy_commission TEXT,
         sell_date TEXT,
         sell_ammount INTEGER,
         sell_price TEXT,
         sell_currency TEXT,
-        sell_operation_id TEXT
+        sell_operation_id TEXT,
+        sell_commission TEXT
     );"""
     port_history_idx_sql = """CREATE INDEX IF NOT EXISTS idx_port_history
     ON port_history (account_id, figi);"""
@@ -84,6 +86,7 @@ def init_database():
     ON port_history (sell_operation_id);
     """
     try:
+        cursor.execute("DROP TABLE IF EXISTS port_history;")
         cursor.execute(port_history_sql)
         cursor.execute(port_history_idx_sql)
         cursor.execute(port_history_idx_sql_buy_id)
@@ -217,6 +220,7 @@ def get_portfolio_history_records(account_id, figi="%"):
                                      datetime.fromisoformat(row['buy_date']), 
                                      int(row['buy_ammount']), Decimal(row['buy_price']),
                                      row['buy_currency'], row['buy_operation_id'],
+                                     Decimal(row['buy_commission']),
                                      rowid=row['rowid'])
         if row['sell_date'] is not None:
             obj.sell_date = datetime.fromisoformat(row['sell_date'])
@@ -224,6 +228,7 @@ def get_portfolio_history_records(account_id, figi="%"):
             obj.sell_price = Decimal(row['sell_price'])
             obj.sell_currency = row['sell_currency']
             obj.sell_operation_id = row['sell_operation_id']
+            obj.sell_commission = Decimal(row['sell_commission'])
         out.append(obj)
     return out
 
@@ -232,17 +237,17 @@ def put_portfolio_history_record(hist_object: PortfolioHistoryObject):
     db_logger.debug(f"Put portfolio history record for {hist_object.figi} "
                     "on {hist_object.account_id}")
     sql = """INSERT OR REPLACE INTO port_history (rowid, account_id,
-        figi, buy_date, buy_ammount, buy_price, buy_currency, buy_operation_id,
-        sell_date, sell_ammount, sell_price, sell_currency, sell_operation_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"""
+        figi, buy_date, buy_ammount, buy_price, buy_currency, buy_operation_id, buy_commission,
+        sell_date, sell_ammount, sell_price, sell_currency, sell_operation_id, sell_commission)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"""
     try:
         cursor.execute(sql, (hist_object.rowid, hist_object.account_id, hist_object.figi,
                              hist_object.buy_date, hist_object.buy_ammount,
                              str(hist_object.buy_price), hist_object.buy_currency,
-                             hist_object.buy_operation_id,
+                             hist_object.buy_operation_id, str(hist_object.buy_commission),
                              hist_object.sell_date, hist_object.sell_ammount,
                              str(hist_object.sell_price), hist_object.sell_currency,
-                             hist_object.sell_operation_id)
+                             hist_object.sell_operation_id, str(hist_object.sell_commission))
                        )
         sqlite_connection.commit()
     except sqlite3.Error as e:

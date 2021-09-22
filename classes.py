@@ -1,6 +1,6 @@
 import math
 import pytz
-from datetime import datetime, timedelta
+from datetime import datetime
 from dataclasses import dataclass
 
 import logging
@@ -20,11 +20,13 @@ class PortfolioHistoryObject:
     buy_price: Decimal
     buy_currency: str
     buy_operation_id: str
+    buy_commission: Decimal
     sell_date: datetime = None
     sell_ammount: int = None
     sell_price: Decimal = None
     sell_currency: str = None
     sell_operation_id: str = None
+    sell_commission: Decimal = None
     rowid: int = None
 
     def days(self) -> int:
@@ -37,7 +39,7 @@ class PortfolioHistoryObject:
         logging.debug(f"{delta} - {delta.days}")
         return delta.days
 
-    def ticker(self):
+    def ticker(self) -> str:
         return data_parser.get_instrument_by_figi(self.figi).ticker
 
     def years_f(self) -> Decimal:
@@ -76,4 +78,14 @@ class PortfolioHistoryObject:
         if self.years_f() >= 3:
             return 0
         # а как на счет отрицательной цены - это же тоже вычет!
-        return self.sell_total_rub() - self.buy_total_rub()
+        # налоговая база = разница цен покупки и продажи, минус комиссия покупки и продажи
+        buy_rate = data_parser.get_exchange_rate_db(self.buy_date, self.buy_currency)
+        buy_commission_rub = self.buy_commission * buy_rate
+
+        sell_commission_rub = 0
+        if self.sell_date is not None:
+            sell_rate = data_parser.get_exchange_rate_db(self.sell_date, self.sell_currency)
+            sell_commission_rub = self.sell_commission * sell_rate
+
+        price_diff = self.sell_total_rub() - self.buy_total_rub()
+        return price_diff - buy_commission_rub - sell_commission_rub
