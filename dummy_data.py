@@ -3,34 +3,19 @@ from tinvest.schemas import InstrumentType, MoneyAmount, Currency
 
 from decimal import Decimal
 
-dummy_positions = [
-    # PortfolioPosition(
-    # name='Бумажка',
-    # averagePositionPrice=MoneyAmount(currency=Currency('RUB'),value='100'),
-    # averagePositionPriceNoNkd=None,
-    # balance=1000000,
-    # blocked=None,
-    # expectedYield=MoneyAmount(currency=Currency('RUB'),value='100500'),
-    # figi='BBBBBBUMAZHKA',
-    # instrumentType=InstrumentType('Stock'),
-    # isin='BUMBUMBUM01',
-    # lots=5,
-    # ticker='BUMAZHKA'
-    # ),
-
-    PortfolioPosition(
+dummy_positions = [PortfolioPosition(
     name='Доллар США',
-    averagePositionPrice=MoneyAmount(currency=Currency('RUB'),value=Decimal(73.25)),
-    averagePositionPriceNoNkd=None,
-    balance=Decimal(1000000),
+    average_position_price=MoneyAmount(currency=Currency('RUB'),value='73.0'),
+    average_position_price_no_nkd=None,
+    balance=1000000,
     blocked=None,
-    expectedYield=MoneyAmount(currency=Currency('RUB'),value=Decimal(100.25)),
+    expected_yield=MoneyAmount(currency=Currency('RUB'),value='175.0'),
     figi='BBG0013HGFT4',
-    instrumentType=InstrumentType('Currency'),
+    instrument_type=InstrumentType('Currency'),
     isin=None,
     lots=2,
     ticker='USD000UTSTOM'
-    )
+)
 ]
 
 my_portfolio = Portfolio(positions=dummy_positions)
