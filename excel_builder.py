@@ -24,11 +24,15 @@ def get_color(num):
 
 def build_excel_file(account, my_positions, my_operations, rates_today_cb, market_rate_today,
                      average_percent, portfolio_cost_rub_market, sum_profile,
-                     investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate):
+                     investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate, mode):
 
     logger.info('creating excel file..')
-    excel_file_name = 'tinkoffReport_' + data_parser.account_data['now_date'].strftime('%Y.%b.%d') + '_'\
-                      + account.broker_account_id + '.xlsx'
+    if mode == 'TEST':
+        excel_file_name = 'testReport_' + data_parser.account_data['now_date'].strftime('%Y.%b.%d') + '_' \
+                          + account.broker_account_id + '.xlsx'
+    else:
+        excel_file_name = 'tinkoffReport_' + data_parser.account_data['now_date'].strftime('%Y.%b.%d') + '_'\
+                          + account.broker_account_id + '.xlsx'
     workbook = xlsxwriter.Workbook(excel_file_name)
     workbook.set_size(1440, 1024)  # set default window size
     worksheet_port = workbook.add_worksheet("Portfolio")
@@ -60,6 +64,9 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
 
     worksheet_port.set_column('A:A', 16)
     worksheet_port.write(0, 0, data_parser.account_data['now_date'].strftime('%Y %b %d  %H:%M'), cell_format['bold_center'])
+
+    if mode == 'TEST':
+        worksheet_port.write(1, 0, 'TEST', cell_format['bold_center'])
 
     def print_portfolio(s_row, s_col):
         logger.info('building portfolio table..')

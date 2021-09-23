@@ -586,6 +586,6 @@ if __name__ == '__main__':
         # EXCEL
         build_excel_file(account, my_positions, my_operations, rates_today_cb, market_rate_today,
                          average_percent, portfolio_cost_rub_market, sum_profile,
-                         investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate)
+                         investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate, mode)
 
     logger.info(f'done in {time.time() - start_time:.2f} seconds')
