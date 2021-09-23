@@ -201,6 +201,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
         s_row = print_content("Etf")
         s_row = print_content("Other")
         last_row = print_content("Currency")
+        worksheet_port.autofilter(4, s_col, last_row, s_col+16)
         print_totals(last_row, s_col)
 
         return last_row
