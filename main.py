@@ -532,7 +532,7 @@ if __name__ == '__main__':
         # from data_parser
         if mode == 'TEST':
             positions = data_parser.get_dummy_positions()
-            KOSTYL, operations, market_rate_today, currencies = data_parser.get_api_data(account.broker_account_id)
+            _, operations, market_rate_today, currencies = data_parser.get_api_data(account.broker_account_id)
             account_data = data_parser.parse_text_file()
             today_date = datetime.date(account_data['now_date'])
             investing_period = data_parser.calc_investing_period()
