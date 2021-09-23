@@ -16,6 +16,8 @@ from pycbrf.toolbox import ExchangeRates
 import database
 from currencies import currencies_data, supported_currencies
 
+from dummy_data import dummy_positions
+
 logger = logging.getLogger("Parser")
 logger.setLevel(logging.INFO)
 
@@ -99,7 +101,12 @@ def get_api_data(broker_account_id):
     currencies = client.get_portfolio_currencies(broker_account_id=broker_account_id)
     logger.info("portfolio received")
 
-    return positions, operations, market_rate_today, currencies
+    return positions.payload.positions, operations.payload.operations, market_rate_today, currencies
+
+def get_dummy_positions():
+    logger.info("getting dummy positions from file..")
+    positions = dummy_positions
+    return positions
 
 
 def get_current_market_price(figi, depth=0, max_age=10*60):

@@ -62,7 +62,7 @@ def get_portfolio_cash_rub():
 def calculate_ave_buy_price_rub(this_pos):
     item_list = []
     # for this position's figi - add units into the list from operations
-    for ops in reversed(operations.payload.operations):
+    for ops in reversed(operations):
         date = datetime.date(ops.date)
         rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
 
@@ -138,13 +138,13 @@ def calculate_ave_buy_price_rub(this_pos):
 def creating_positions_objects():
     logger.info('creating position objects..')
 
-    number_positions = len(positions.payload.positions)
+    number_positions = len(positions)
     logger.info(f'{number_positions} positions in portfolio')
-    number_operations = len(operations.payload.operations)
+    number_operations = len(operations)
     logger.info(f'{number_operations} operations in period')
 
     my_positions = list()
-    for this_pos in positions.payload.positions:
+    for this_pos in positions:
         # type (stock, bond, etf or currency)
         position_type = data_parser.get_position_type(this_pos.figi)
 
@@ -380,7 +380,7 @@ def create_operations_objects():
     logger.info('creating operations objects..')
     my_operations = list()
     instruments_dictionary = {}
-    for this_op in operations.payload.operations:
+    for this_op in operations:
         date = datetime.date(this_op.date)
         rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
         # ticker
@@ -491,6 +491,12 @@ def calculate_xirr(operations, portfolio_value):
     return x
 
 
+def save_positions_into_file():
+    with open('saved_positions.txt', 'w', encoding="utf8") as file:
+        for position in positions:
+            file.write(str(position))
+
+
 if __name__ == '__main__':
 
     logging_level = logging.INFO
@@ -499,6 +505,13 @@ if __name__ == '__main__':
         logging_level = logging.WARNING
     elif sys.argv[-1] in ['-d', '--debug']:
         logging_level = logging.DEBUG
+
+    if sys.argv[-1] in ['-t', '--test']:
+        mode = 'TEST'
+    elif sys.argv[-1] in ['-s', '--save']:
+        mode = 'SAVING'
+    else:
+        mode = 'NORMAL'
 
     logging.basicConfig(level=logging_level,
                         format='%(asctime)s [%(levelname)-3s] %(name)s: %(message)s',
@@ -509,7 +522,7 @@ if __name__ == '__main__':
 
     start_time = time.time()
     tax_rate = 13  # percents
-    logger.info('Start')
+    logger.info('Starting program in ' + mode + ' mode')
 
     # get accounts
     accounts = data_parser.get_accounts()
@@ -517,12 +530,21 @@ if __name__ == '__main__':
         logger.info(account)
 
         # from data_parser
-        positions, operations, market_rate_today, currencies = data_parser.get_api_data(account.broker_account_id)
-        account_data = data_parser.parse_text_file()
-        today_date = datetime.date(account_data['now_date'])
-        investing_period = data_parser.calc_investing_period()
-        investing_period_str = f'{investing_period.years}y {investing_period.months}m {investing_period.days}d'
-        rates_today_cb = data_parser.get_exchange_rates_for_date_db(today_date)
+        if mode == 'TEST':
+            positions = data_parser.get_dummy_positions()
+            KOSTYL, operations, market_rate_today, currencies = data_parser.get_api_data(account.broker_account_id)
+            account_data = data_parser.parse_text_file()
+            today_date = datetime.date(account_data['now_date'])
+            investing_period = data_parser.calc_investing_period()
+            investing_period_str = f'{investing_period.years}y {investing_period.months}m {investing_period.days}d'
+            rates_today_cb = data_parser.get_exchange_rates_for_date_db(today_date)
+        else:
+            positions, operations, market_rate_today, currencies = data_parser.get_api_data(account.broker_account_id)
+            account_data = data_parser.parse_text_file()
+            today_date = datetime.date(account_data['now_date'])
+            investing_period = data_parser.calc_investing_period()
+            investing_period_str = f'{investing_period.years}y {investing_period.months}m {investing_period.days}d'
+            rates_today_cb = data_parser.get_exchange_rates_for_date_db(today_date)
 
         # from main
         cash_rub = get_portfolio_cash_rub()
@@ -556,6 +578,10 @@ if __name__ == '__main__':
 
         # PayIn - PayOut
         payin_payout = sum_profile['payin'] - abs(sum_profile['payout'])
+
+        # Saving positions into TXT file
+        if mode == 'SAVING':
+            save_positions_into_file()
 
         # EXCEL
         build_excel_file(account, my_positions, my_operations, rates_today_cb, market_rate_today,
