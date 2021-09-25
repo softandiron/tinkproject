@@ -113,67 +113,27 @@ def creating_positions_objects():
 
     my_positions = list()
     for this_pos in positions.payload.positions:
-        # type (stock, bond, etf or currency)
-        position_type = data_parser.get_position_type(this_pos.figi)
+        this_pos_instrument = data_parser.get_instrument_by_figi(this_pos.figi)
+        curr_market_price = data_parser.get_current_market_price(this_pos.figi)
+
+        currency = this_pos.average_position_price.currency
+        market_rate = market_rate_today[currency]
+        cb_rate = data_parser.get_exchange_rate_db(today_date, currency)
+
+        tmp_position = PortfolioPosition.from_api_data(this_pos, this_pos_instrument,
+                                                       curr_market_price,
+                                                       market_rate, cb_rate)
 
         if this_pos.average_position_price.value > 0:
-            if position_type == "Bond":
-                # market cost (total for each position)
-                market_cost = round((this_pos.expected_yield.value + (this_pos.average_position_price.value *
-                                                                      this_pos.balance)), 2)
-                # current market prise for 1 item
-                market_price = round((market_cost / this_pos.balance), 2)
-            else:
-                # current market prise for 1 item
-                market_price = data_parser.get_current_market_price(this_pos.figi)
-                # market cost (total for each position)
-                market_cost = market_price * this_pos.balance
-
-            # % change
-            percent_change = ((market_price / this_pos.average_position_price.value) * 100) - 100
-
-            # market value RUB (total cost for each position)
-            market_value_rub = market_cost * market_rate_today[this_pos.average_position_price.currency]
-
-            global market_cost_rub_cb
-            # total value rub CB
-            if this_pos.average_position_price.currency in supported_currencies:
-                rate = data_parser.get_exchange_rate_db(today_date, this_pos.average_position_price.currency)
-                market_cost_rub_cb = market_cost * rate
-            else:
-                market_cost_rub_cb = 'unknown currency'
-
-            # sum buy (purchase amount)
-
-            sum_buy = this_pos.average_position_price.value * this_pos.balance
-
             ave_buy_price_rub = calculate_ave_buy_price_rub(this_pos)
-            sum_buy_rub = ave_buy_price_rub * this_pos.balance
-
-            tax_base = market_cost_rub_cb - sum_buy_rub
-            exp_tax = tax_base * Decimal(tax_rate / 100)
-
             logger.info(this_pos.name)
-
         else:  # in the case, if this position has ZERO purchase price
-            sum_buy = Decimal(0)
-            market_price = data_parser.get_current_market_price(this_pos.figi)
-            percent_change = Decimal(0)
-            market_cost = market_price * this_pos.balance
-            market_value_rub = market_cost * market_rate_today[this_pos.average_position_price.currency]
-            market_cost_rub_cb = Decimal(0)
             ave_buy_price_rub = Decimal(0)
-            sum_buy_rub = Decimal(0)
-            tax_base = Decimal(0)
-            exp_tax = Decimal(0)
             logger.warning(this_pos.name + ' - not enough data!')
 
-        my_positions.append(PortfolioPosition(this_pos.figi, this_pos.name, this_pos.ticker, this_pos.balance,
-                                              position_type, this_pos.average_position_price.currency,
-                                              this_pos.average_position_price.value, sum_buy,
-                                              this_pos.expected_yield.value,
-                                              market_price, percent_change, market_cost, market_value_rub,
-                                              market_cost_rub_cb, ave_buy_price_rub, sum_buy_rub, tax_base, exp_tax))
+        tmp_position.ave_buy_price_rub = ave_buy_price_rub
+
+        my_positions.append(tmp_position)
 
     my_positions.sort(key=operator.attrgetter('name'))
     logger.info('..positions are ready')
