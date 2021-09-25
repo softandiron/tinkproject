@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from tinvest import schemas as tschemas
@@ -129,10 +130,18 @@ class PortfolioPosition:
 @dataclass
 class PortfolioOperation:
     op_type: str
-    op_date: str
+    op_date: datetime
     op_currency: str
     op_payment: Decimal
     op_ticker: str
     op_payment_rub: Decimal
     op_figi: str
-    op_in_last_12_months: bool
+
+    @property
+    def op_in_last_12_months(self):
+        return self.op_in_last_365_days
+
+    @property
+    def op_in_last_365_days(self):
+        tz_info = self.op_date.tzinfo
+        return self.op_date > datetime.now(tz_info) - timedelta(days=365)

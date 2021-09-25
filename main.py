@@ -329,18 +329,12 @@ def create_operations_objects():
             logger.warning('unknown currency in position: ' + this_op.name)
             payment_rub = 0
 
-        # is it in last 12 months?
-        in_last_365_days = False
-        if datetime.date(this_op.date) > (today_date - timedelta(365)):
-            in_last_365_days = True
-
         my_operations.append(PortfolioOperation(this_op.operation_type,
                                                 this_op.date,
                                                 this_op.currency,
                                                 this_op.payment,
                                                 ticker, payment_rub,
-                                                this_op.figi,
-                                                in_last_365_days))
+                                                this_op.figi))
 
     logger.info('..operations are ready')
     return my_operations
