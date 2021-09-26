@@ -13,7 +13,7 @@ import tinvest
 from pycbrf.rates import ExchangeRate
 from pycbrf.toolbox import ExchangeRates
 
-import database
+from database import Database
 from currencies import currencies_data, supported_currencies
 
 logger = logging.getLogger("Parser")
@@ -173,4 +173,4 @@ def get_instrument_by_figi(figi, max_age=7*24*60*60):
 
 
 account_data = parse_text_file()
-database.open_database_connection()
+database = Database()
