@@ -451,11 +451,22 @@ def xirr(valuesPerDate):
         return float("inf")
     if all(v <= 0 for v in valuesPerDate.values()):
         return -float("inf")
+
     result = None
     try:
         result = scipy.optimize.newton(lambda r: xnpv(valuesPerDate, r), 0)
-    except (RuntimeError, OverflowError):    # Failed to converge?
-        result = scipy.optimize.brentq(lambda r: xnpv(valuesPerDate, r), -0.999999999999999, 1e20, maxiter=10**6)
+    except (RuntimeError, OverflowError, ValueError):    # Failed to converge?
+        pass
+    except Exception as e:
+        logger.error(f"XIRR - unknown exception during calculation: {e}")
+
+    if not result:
+        logger.info("XIRR - trying another method of calculation")
+        try:
+            result = scipy.optimize.brentq(lambda r: xnpv(valuesPerDate, r), -0.999999999999999, 1e20, maxiter=10**6)
+        except Exception as e:
+            logger.warning(f"Could not calculate XIRR: {e}")
+    
     if not isinstance(result, complex):
         return result
     else:
@@ -487,7 +498,11 @@ def calculate_xirr(operations, portfolio_value):
 
     dates_values_composed[datetime.date(data_parser.account_data['now_date'])] = int(portfolio_value)
 
-    x = round((xirr(dates_values_composed) * 100), 2)
+    xirr_value = xirr(dates_values_composed)
+    if xirr_value:
+        x = round((xirr_value * 100), 2)
+    else:
+        x = "---"
     return x
 
 
