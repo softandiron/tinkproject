@@ -6,7 +6,7 @@
 import logging
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
 import operator
 import scipy.optimize
@@ -339,7 +339,7 @@ def calculate_operations_sums_rub(current_op_type):
     for op in my_operations:
         if op.op_type == current_op_type and op.op_payment != 0:
             if op.op_currency in supported_currencies:
-                date = datetime.date(op.op_date)  # op_date has a datetime.datetime type. I don't know, what a problem.
+                date = datetime.date(op.op_date)  # op_date has a datetime.datetime type. I don't know, what is a problem.
                 rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
                 op_list.append(op.op_payment * rate_for_date[op.op_currency])
             else:
@@ -382,7 +382,7 @@ def xirr(valuesPerDate):
             result = scipy.optimize.brentq(lambda r: xnpv(valuesPerDate, r), -0.999999999999999, 1e20, maxiter=10**6)
         except Exception as e:
             logger.warning(f"Could not calculate XIRR: {e}")
-    
+
     if not isinstance(result, complex):
         return result
     else:
@@ -478,8 +478,9 @@ if __name__ == '__main__':
 
         xirr_value = calculate_xirr(my_operations, (portfolio_cost_rub_market - sum_profile['exp_tax']))
 
-        for operation in ['PayIn', 'PayOut', 'Buy', 'BuyCard', 'Sell', 'Coupon', 'Dividend', 'Tax', 'TaxCoupon',
-                          'TaxDividend', 'BrokerCommission', 'ServiceCommission']:
+        for operation in ['PayIn', 'PayOut', 'Buy', 'BuyCard', 'Sell', 'Coupon', 'Dividend',
+                          'Tax', 'TaxCoupon', 'TaxDividend',
+                          'BrokerCommission', 'ServiceCommission']:
             logger.info(f'calculating {operation} operations sum in RUB..')
             sum_profile[operation.lower()] = calculate_operations_sums_rub(operation)
 
