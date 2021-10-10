@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 import logging
-import data_parser
 from decimal import Decimal
 
 from tinvest import schemas as tschemas
@@ -157,16 +156,21 @@ class PortfolioOperation:
 class PortfolioHistoryObject:
     account_id: str
     figi: str
+    ticker: str
     buy_date: datetime
     buy_ammount: int
     buy_price: Decimal
     buy_currency: str
+    buy_cb_rate: Decimal
     buy_operation_id: str
     buy_commission: Decimal
+    current_price: Decimal
+    current_cb_rate: Decimal
     sell_date: datetime = None
     sell_ammount: int = None
     sell_price: Decimal = None
     sell_currency: str = None
+    sell_cb_rate: Decimal = 1
     sell_operation_id: str = None
     sell_commission: Decimal = None
     rowid: int = None
@@ -180,9 +184,6 @@ class PortfolioHistoryObject:
         delta = calc_date - self.buy_date
         logging.debug(f"{delta} - {delta.days}")
         return delta.days
-
-    def ticker(self) -> str:
-        return data_parser.get_instrument_by_figi(self.figi).ticker
 
     def years_f(self) -> Decimal:
         # Возвращает количество годов с дробью, с примерной поправкой на високосные годы
@@ -199,35 +200,29 @@ class PortfolioHistoryObject:
         return self.buy_ammount * self.buy_price
 
     def buy_total_rub(self) -> Decimal:
-        rate = data_parser.get_exchange_rate_db(self.buy_date, self.buy_currency)
-        return self.buy_total() * rate
+        return self.buy_total() * self.buy_cb_rate
 
     def sell_total(self) -> Decimal:
         if self.sell_date is not None:
             return self.sell_ammount * self.sell_price
 
-        price = data_parser.get_current_market_price(self.figi)
-        return self.buy_ammount * price
+        return self.buy_ammount * self.current_price
 
     def sell_total_rub(self) -> Decimal:
         if self.sell_date is not None:
-            rate = data_parser.get_exchange_rate_db(self.sell_date, self.sell_currency)
-            return self.sell_total() * rate
-        rate = data_parser.get_exchange_rate_db(currency=self.buy_currency)
-        return self.sell_total() * rate
+            return self.sell_total() * self.sell_cb_rate
+        return self.sell_total() * self.current_cb_rate
 
     def tax_base(self) -> Decimal:
         if self.years_f() >= 3:
             return 0
         # а как на счет отрицательной цены - это же тоже вычет!
         # налоговая база = разница цен покупки и продажи, минус комиссия покупки и продажи
-        buy_rate = data_parser.get_exchange_rate_db(self.buy_date, self.buy_currency)
-        buy_commission_rub = self.buy_commission * buy_rate
+        buy_commission_rub = self.buy_commission * self.buy_cb_rate
 
         sell_commission_rub = 0
         if self.sell_date is not None:
-            sell_rate = data_parser.get_exchange_rate_db(self.sell_date, self.sell_currency)
-            sell_commission_rub = self.sell_commission * sell_rate
+            sell_commission_rub = self.sell_commission * self.sell_cb_rate
 
         price_diff = self.sell_total_rub() - self.buy_total_rub()
         return price_diff - buy_commission_rub - sell_commission_rub

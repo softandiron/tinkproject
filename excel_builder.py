@@ -624,8 +624,8 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
             ['Buy commission', 14, 'bold_center', False],
             ['Sell date', 14, 'bold_center', False],
             ['Sell ammount', 10, 'bold_center', False],
-            ['Sell price', 14, 'bold_center', False],
-            ['Sell total CB', 14, 'bold_center', False],
+            ['Sell/Curr price', 14, 'bold_center', False],
+            ['Sell/Curr total CB', 14, 'bold_center', False],
             ['Sell commission', 14, 'bold_center', False],
             ['Days', 8, 'bold_center', False, 'Количество дней владения'],
             ['Years', 8, 'bold_center', False, 'Целое количество лет владения'],
@@ -643,7 +643,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                 continue
             # worksheet_parts.write(start_row, start_col + 2, type_data['value'], cell_format[currency])
             worksheet_hist.write(start_row, start_col-1, record.figi)
-            worksheet_hist.write(start_row, start_col, record.ticker())
+            worksheet_hist.write(start_row, start_col, record.ticker)
             worksheet_hist.write(start_row, start_col+1, record.buy_date.strftime("%Y-%m-%d"))
             if record.buy_ammount == 0:
                 worksheet_hist.write(start_row, start_col+2, "Заявка не выполнена")
@@ -665,6 +665,9 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
 
                 worksheet_hist.write(start_row, start_col+10, record.sell_commission, cell_format[record.sell_currency])
                 worksheet_hist.write(start_row, start_col+17, record.sell_operation_id)
+            else:
+                worksheet_hist.write(start_row, start_col+8, record.current_price, cell_format[record.buy_currency])
+                worksheet_hist.write(start_row, start_col+9, record.sell_total_rub(), cell_format["RUB"])
 
             worksheet_hist.write(start_row, start_col+13, record.tax_base(), cell_format["RUB"])
 

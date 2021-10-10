@@ -448,9 +448,13 @@ def parse_portfolio_history():
             if operation.commission is not None:
                 buy_commission = abs(operation.commission.value)
             hist_object = PortfolioHistoryObject(account.broker_account_id, operation.figi,
+                                                 data_parser.get_ticker_by_figi(operation.figi),
                                                  operation.date, buy_ammount,
                                                  operation.price, operation.currency,
-                                                 operation_id, buy_commission)
+                                                 data_parser.get_exchange_rate_db(operation.date, operation.currency),
+                                                 operation_id, buy_commission, 
+                                                 data_parser.get_current_market_price(operation.figi),
+                                                 data_parser.get_exchange_rate_db(currency=operation.currency))
             if buy_ammount == 0:
                 # если заявка не исполнена - сразу записать пустую запись
                 hist_object.buy_price = 0

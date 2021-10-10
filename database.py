@@ -224,17 +224,24 @@ class Database:
             db_logger.error("Error getting portfolio history", e)
         out = []
         for row in rows:
+            obj_date = datetime.fromisoformat(row['buy_date'])
             obj = PortfolioHistoryObject(row['account_id'], row['figi'],
-                                        datetime.fromisoformat(row['buy_date']), 
-                                        int(row['buy_ammount']), Decimal(row['buy_price']),
-                                        row['buy_currency'], row['buy_operation_id'],
-                                        Decimal(row['buy_commission']),
-                                        rowid=row['rowid'])
+                                         self.get_instrument_by_figi(row['figi']).ticker,
+                                         obj_date,
+                                         int(row['buy_ammount']), Decimal(row['buy_price']),
+                                         row['buy_currency'],
+                                         self.get_exchange_rate(obj_date, row['buy_currency']),
+                                         row['buy_operation_id'],
+                                         Decimal(row['buy_commission']),
+                                         self.get_market_price_by_figi(row['figi']),
+                                         self.get_exchange_rate(currency=row['buy_currency']),
+                                         rowid=row['rowid'])
             if row['sell_date'] is not None:
                 obj.sell_date = datetime.fromisoformat(row['sell_date'])
                 obj.sell_ammount = row['sell_ammount']
                 obj.sell_price = Decimal(row['sell_price'])
                 obj.sell_currency = row['sell_currency']
+                obj.sell_cb_rate = self.get_exchange_rate(obj.sell_date, obj.sell_currency)
                 obj.sell_operation_id = row['sell_operation_id']
                 obj.sell_commission = Decimal(row['sell_commission'])
             out.append(obj)
