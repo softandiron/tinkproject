@@ -20,8 +20,8 @@ logger = logging.getLogger("Parser")
 logger.setLevel(logging.INFO)
 
 # creating ruble 1:1 exchange rate for cleaner iterating over currencies
-ruble = ExchangeRate(code='RUB', value=Decimal(1), rate=Decimal(1), name='Рубль', id='KOSTYL', num='KOSTYL',
-                     par=Decimal(1))
+ruble = ExchangeRate(code='RUB', value=Decimal(1), rate=Decimal(1), name='Рубль',
+                     id='KOSTYL', num='KOSTYL', par=Decimal(1))
 delay_time = 0.1
 
 
@@ -89,7 +89,9 @@ def get_api_data(broker_account_id):
     client = tinvest.SyncClient(account_data['my_token'])
     logger.info("authorisation success")
     positions = client.get_portfolio(broker_account_id=broker_account_id)
-    operations = client.get_operations(from_=account_data['start_date'], to=account_data['now_date'], broker_account_id=broker_account_id)
+    operations = client.get_operations(from_=account_data['start_date'],
+                                       to=account_data['now_date'],
+                                       broker_account_id=broker_account_id)
     market_rate_today = {}
     for currency, data in currencies_data.items():
         if 'figi' in data.keys():
@@ -170,6 +172,13 @@ def get_instrument_by_figi(figi, max_age=7*24*60*60):
         return get_instrument_by_figi(figi, max_age)
     database.put_instrument(position_data.payload)
     return position_data.payload
+
+
+def get_ticker_by_figi(figi, max_age=7*24*60*60):
+    # max_age - timeout for getting old, default - 1 week
+    instrument = get_instrument_by_figi(figi, max_age)
+    ticker = instrument.ticker
+    return ticker
 
 
 account_data = parse_text_file()

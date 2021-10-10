@@ -6,13 +6,14 @@
 import logging
 import sys
 import time
-from datetime import datetime, timedelta
-from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 import operator
 import scipy.optimize
 from pprint import pprint
 from copy import copy
+
+from classes import PortfolioOperation, PortfolioPosition
 
 import data_parser
 
@@ -21,39 +22,6 @@ from database import PortfolioHistoryObject
 
 import excel_builder
 from excel_builder import build_excel_file, supported_currencies, assets_types
-
-@dataclass
-class PortfolioPosition:
-    figi: str
-    name: str
-    ticker: str
-    balance: Decimal
-    position_type: str
-    currency: Decimal
-    ave_price: Decimal
-    sum_buy: Decimal
-    exp_yield: Decimal
-    market_price: Decimal
-    percent_change: Decimal
-    market_cost: Decimal
-    market_value_rub: Decimal
-    market_cost_rub_cb: Decimal
-    ave_buy_price_rub: Decimal
-    sum_buy_rub: Decimal
-    tax_base: Decimal
-    exp_tax: Decimal
-
-
-@dataclass
-class PortfolioOperation:
-    op_type: str
-    op_date: str
-    op_currency: str
-    op_payment: Decimal
-    op_ticker: str
-    op_payment_rub: Decimal
-    op_figi: str
-    op_in_last_12_months: bool
 
 
 def get_portfolio_cash_rub():
@@ -150,67 +118,27 @@ def creating_positions_objects():
 
     my_positions = list()
     for this_pos in positions.payload.positions:
-        # type (stock, bond, etf or currency)
-        position_type = data_parser.get_position_type(this_pos.figi)
+        this_pos_instrument = data_parser.get_instrument_by_figi(this_pos.figi)
+        curr_market_price = data_parser.get_current_market_price(this_pos.figi)
+
+        currency = this_pos.average_position_price.currency
+        market_rate = market_rate_today[currency]
+        cb_rate = data_parser.get_exchange_rate_db(today_date, currency)
+
+        tmp_position = PortfolioPosition.from_api_data(this_pos, this_pos_instrument,
+                                                       curr_market_price,
+                                                       market_rate, cb_rate)
 
         if this_pos.average_position_price.value > 0:
-            if position_type == "Bond":
-                # market cost (total for each position)
-                market_cost = round((this_pos.expected_yield.value + (this_pos.average_position_price.value *
-                                                                      this_pos.balance)), 2)
-                # current market prise for 1 item
-                market_price = round((market_cost / this_pos.balance), 2)
-            else:
-                # current market prise for 1 item
-                market_price = data_parser.get_current_market_price(this_pos.figi)
-                # market cost (total for each position)
-                market_cost = market_price * this_pos.balance
-
-            # % change
-            percent_change = ((market_price / this_pos.average_position_price.value) * 100) - 100
-
-            # market value RUB (total cost for each position)
-            market_value_rub = market_cost * market_rate_today[this_pos.average_position_price.currency]
-
-            global market_cost_rub_cb
-            # total value rub CB
-            if this_pos.average_position_price.currency in supported_currencies:
-                rate = data_parser.get_exchange_rate_db(today_date, this_pos.average_position_price.currency)
-                market_cost_rub_cb = market_cost * rate
-            else:
-                market_cost_rub_cb = 'unknown currency'
-
-            # sum buy (purchase amount)
-
-            sum_buy = this_pos.average_position_price.value * this_pos.balance
-
             ave_buy_price_rub = calculate_ave_buy_price_rub(this_pos)
-            sum_buy_rub = ave_buy_price_rub * this_pos.balance
-
-            tax_base = market_cost_rub_cb - sum_buy_rub
-            exp_tax = tax_base * Decimal(tax_rate / 100)
-
             logger.info(this_pos.name)
-
         else:  # in the case, if this position has ZERO purchase price
-            sum_buy = Decimal(0)
-            market_price = data_parser.get_current_market_price(this_pos.figi)
-            percent_change = Decimal(0)
-            market_cost = market_price * this_pos.balance
-            market_value_rub = market_cost * market_rate_today[this_pos.average_position_price.currency]
-            market_cost_rub_cb = Decimal(0)
             ave_buy_price_rub = Decimal(0)
-            sum_buy_rub = Decimal(0)
-            tax_base = Decimal(0)
-            exp_tax = Decimal(0)
             logger.warning(this_pos.name + ' - not enough data!')
 
-        my_positions.append(PortfolioPosition(this_pos.figi, this_pos.name, this_pos.ticker, this_pos.balance,
-                                              position_type, this_pos.average_position_price.currency,
-                                              this_pos.average_position_price.value, sum_buy,
-                                              this_pos.expected_yield.value,
-                                              market_price, percent_change, market_cost, market_value_rub,
-                                              market_cost_rub_cb, ave_buy_price_rub, sum_buy_rub, tax_base, exp_tax))
+        tmp_position.ave_buy_price_rub = ave_buy_price_rub
+
+        my_positions.append(tmp_position)
 
     my_positions.sort(key=operator.attrgetter('name'))
     logger.info('..positions are ready')
@@ -384,18 +312,12 @@ def calculate_iis_deduction():
 def create_operations_objects():
     logger.info('creating operations objects..')
     my_operations = list()
-    instruments_dictionary = {}
     for this_op in operations.payload.operations:
         date = datetime.date(this_op.date)
         rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
         # ticker
-        if this_op.figi != None:
-            if this_op.figi not in instruments_dictionary:
-                instrument = data_parser.get_instrument_by_figi(this_op.figi)
-                ticker = instrument.ticker
-                instruments_dictionary[this_op.figi] = ticker
-            else:
-                ticker = instruments_dictionary[this_op.figi]
+        if this_op.figi is not None:
+            ticker = data_parser.get_ticker_by_figi(this_op.figi)
         else:
             ticker = "None"
 
@@ -406,18 +328,12 @@ def create_operations_objects():
             logger.warning('unknown currency in position: ' + this_op.name)
             payment_rub = 0
 
-        # is it in last 12 months?
-        in_last_365_days = False
-        if datetime.date(this_op.date) > (today_date - timedelta(365)):
-            in_last_365_days = True
-
         my_operations.append(PortfolioOperation(this_op.operation_type,
                                                 this_op.date,
                                                 this_op.currency,
                                                 this_op.payment,
                                                 ticker, payment_rub,
-                                                this_op.figi,
-                                                in_last_365_days))
+                                                this_op.figi))
 
     logger.info('..operations are ready')
     return my_operations
@@ -428,7 +344,7 @@ def calculate_operations_sums_rub(current_op_type):
     for op in my_operations:
         if op.op_type == current_op_type and op.op_payment != 0:
             if op.op_currency in supported_currencies:
-                date = datetime.date(op.op_date)  # op_date has a datetime.datetime type. I don't know, what a problem.
+                date = datetime.date(op.op_date)  # op_date has a datetime.datetime type. I don't know, what is a problem.
                 rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
                 op_list.append(op.op_payment * rate_for_date[op.op_currency])
             else:
@@ -471,7 +387,7 @@ def xirr(valuesPerDate):
             result = scipy.optimize.brentq(lambda r: xnpv(valuesPerDate, r), -0.999999999999999, 1e20, maxiter=10**6)
         except Exception as e:
             logger.warning(f"Could not calculate XIRR: {e}")
-    
+
     if not isinstance(result, complex):
         return result
     else:
@@ -655,8 +571,9 @@ if __name__ == '__main__':
 
         xirr_value = calculate_xirr(my_operations, (portfolio_cost_rub_market - sum_profile['exp_tax']))
 
-        for operation in ['PayIn', 'PayOut', 'Buy', 'BuyCard', 'Sell', 'Coupon', 'Dividend', 'Tax', 'TaxCoupon',
-                          'TaxDividend', 'BrokerCommission', 'ServiceCommission']:
+        for operation in ['PayIn', 'PayOut', 'Buy', 'BuyCard', 'Sell', 'Coupon', 'Dividend',
+                          'Tax', 'TaxCoupon', 'TaxDividend',
+                          'BrokerCommission', 'ServiceCommission']:
             logger.info(f'calculating {operation} operations sum in RUB..')
             sum_profile[operation.lower()] = calculate_operations_sums_rub(operation)
 
