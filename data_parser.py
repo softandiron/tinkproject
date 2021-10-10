@@ -172,5 +172,12 @@ def get_instrument_by_figi(figi, max_age=7*24*60*60):
     return position_data.payload
 
 
+def get_ticker_by_figi(figi, max_age=7*24*60*60):
+    # max_age - timeout for getting old, default - 1 week
+    instrument = get_instrument_by_figi(figi, max_age)
+    ticker = instrument.ticker
+    return ticker
+
+
 account_data = parse_text_file()
 database = Database()

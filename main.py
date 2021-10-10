@@ -307,18 +307,12 @@ def calculate_iis_deduction():
 def create_operations_objects():
     logger.info('creating operations objects..')
     my_operations = list()
-    instruments_dictionary = {}
     for this_op in operations.payload.operations:
         date = datetime.date(this_op.date)
         rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
         # ticker
-        if this_op.figi != None:
-            if this_op.figi not in instruments_dictionary:
-                instrument = data_parser.get_instrument_by_figi(this_op.figi)
-                ticker = instrument.ticker
-                instruments_dictionary[this_op.figi] = ticker
-            else:
-                ticker = instruments_dictionary[this_op.figi]
+        if this_op.figi is not None:
+            ticker = data_parser.get_ticker_by_figi(this_op.figi)
         else:
             ticker = "None"
 
