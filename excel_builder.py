@@ -36,6 +36,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     worksheet_divs = workbook.add_worksheet("Coupons and Dividends")
     worksheet_parts = workbook.add_worksheet("Parts")
     worksheet_hist = workbook.add_worksheet("History")
+    worksheet_taxes = workbook.add_worksheet("Taxes")
 
     # styles
     cell_format = {}
@@ -635,6 +636,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
         set_columns_and_headings(worksheet_hist, cols, start_row, start_col)
 
         worksheet_hist.freeze_panes(start_row+1, start_col+1)
+        worksheet_hist.autofilter(start_row, start_col, start_row, start_col+len(cols))
 
         start_row += 1
 
@@ -676,7 +678,19 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
 
             start_row += 1
 
-    def print_clarification(s_row, s_col ):
+    def print_taxes():
+        worksheet_taxes.write(0, 0, "Тут будет расчет налогов по годам")
+        worksheet_taxes.write(0, 3, "Все не слишком просто - расчет надо вести по всем счетам у одного брокера!")
+        worksheet_taxes.write(1, 0, "Раздел - уже уплаченых - из операций")
+        worksheet_taxes.write(2, 0, "Раздел - которые надо будет оплатить в конце года - расчет из операций продаж")
+        worksheet_taxes.write(3, 0, "Раздел - которые надо будет задекларировать и оплатить самостоятельно в начале следующего года")
+
+        worksheet_taxes.write(6, 0, "2021")
+        worksheet_taxes.write(7, 1, "Уплаченные налоги")
+        worksheet_taxes.write(9, 1, "Налоги, которые будут удержаны в конце года или при выводе средств")
+        worksheet_taxes.write(11, 1, "Налоги, требующие подачи декларации в ФНС")
+
+    def print_clarification(s_row, s_col):
         logger.info('printing clarification..')
         n = 0
         lines = [
@@ -770,6 +784,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     print_iis_deduction_table()
     print_parts()
     print_history()
+    print_taxes()
 
     # finish Excel
     logger.info('Excel file composed! With name: '+excel_file_name)
