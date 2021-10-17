@@ -73,7 +73,6 @@ class Database:
         except Exception as e:
             db_logger.error("Error creating marketprice table", e)
 
-        
         db_logger.debug("Checking portfolio history table")
         port_history_sql = """CREATE TABLE IF NOT EXISTS port_history (
             account_id TEXT,
@@ -108,8 +107,6 @@ class Database:
             self.sqlite_connection.commit()
         except Exception as e:
             db_logger.error("Error creating portfolio history table", e)
-
-
 
     def close_database_connection(self):
         self.sqlite_connection.commit()
@@ -217,7 +214,7 @@ class Database:
     def get_portfolio_history_records(self, account_id, figi="%"):
         db_logger.info(f"Get portfolio history for {figi} on account {account_id}")
         sql_s = ("SELECT rowid, * FROM port_history where account_id=? and figi LIKE ?"
-                " ORDER BY  buy_date, sell_date;")
+                 " ORDER BY  buy_date, sell_date;")
         try:
             rows = self.cursor.execute(sql_s, (account_id, figi)).fetchall()
         except sqlite3.Error as e:
@@ -247,7 +244,6 @@ class Database:
             out.append(obj)
         return out
 
-
     def put_portfolio_history_record(self, hist_object: PortfolioHistoryObject):
         db_logger.debug(f"Put portfolio history record for {hist_object.figi} "
                         "on {hist_object.account_id}")
@@ -263,13 +259,12 @@ class Database:
                                 hist_object.sell_date, hist_object.sell_ammount,
                                 str(hist_object.sell_price), hist_object.sell_currency,
                                 hist_object.sell_operation_id, str(hist_object.sell_commission))
-                        )
+                                )
             self.sqlite_connection.commit()
         except sqlite3.Error as e:
             db_logger.critical("Portfolio insertion error", e)
             return False
         return True
-
 
     def check_portfolio_history_for_id(self, operation_id):
         db_logger.info(f"Check portfolio history for operation {operation_id}")
