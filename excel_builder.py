@@ -4,6 +4,8 @@ import logging
 import xlsxwriter
 import data_parser
 
+from decimal import Decimal
+
 import currencies
 # For backward compatability - needs to be deprecated later
 # after merging parts tables
@@ -685,10 +687,92 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
         worksheet_taxes.write(2, 0, "Раздел - которые надо будет оплатить в конце года - расчет из операций продаж")
         worksheet_taxes.write(3, 0, "Раздел - которые надо будет задекларировать и оплатить самостоятельно в начале следующего года")
 
-        worksheet_taxes.write(6, 0, "2021")
-        worksheet_taxes.write(7, 1, "Уплаченные налоги")
-        worksheet_taxes.write(9, 1, "Налоги, которые будут удержаны в конце года или при выводе средств")
-        worksheet_taxes.write(11, 1, "Налоги, требующие подачи декларации в ФНС")
+        columns = [
+            ['Дата', 14, 'bold_center', False],
+            ['Тикер', 14, 'bold_center', False],
+            ['Налоговая база', 14, 'bold_center', False],
+            ['Налоговая база в рублях', 16, 'bold_center', False],
+            ['Размер налога', 14, 'bold_center', False],
+        ]
+        # YEAR start
+        curr_row = 6
+        year_row = curr_row
+        start_col = 0
+        worksheet_taxes.write(curr_row, start_col, "2021")
+        curr_row += 1
+        worksheet_taxes.write(curr_row, start_col+1, "Уплаченные налоги")
+        curr_row += 1
+        set_columns_and_headings(worksheet_taxes, columns, curr_row, start_col+1)
+        # worksheet_taxes.set_row(curr_row, None, None, {"level": 1})
+        curr_row += 1
+        summ_taxes = 0
+        for operation in my_operations:
+            # Tax, TacCoupon...
+            if operation.op_type == "TaxDividend":
+                worksheet_taxes.set_row(curr_row, None, None, {"level": 2})
+                # operation's date
+                worksheet_taxes.write(curr_row, start_col+1, operation.op_date.strftime('%Y %m %d  %H:%M'),
+                                      cell_format['left'])
+                # operation's ticker
+                worksheet_taxes.write(curr_row, start_col + 2, operation.op_ticker,
+                                      cell_format['left'])
+
+                # operation's value (payment in the operation's currency)
+                if operation.op_currency in supported_currencies:
+                    worksheet_taxes.write(curr_row, start_col + 5, operation.op_payment,
+                                          cell_format[operation.op_currency])
+                    summ_taxes += operation.op_payment
+                else:
+                    worksheet_taxes.write(curr_row, start_col + 3, 'unknown currency', cell_format['right'])
+                curr_row += 1
+        worksheet_taxes.write(curr_row, start_col + 5, summ_taxes, cell_format['RUB-bold-total'])
+
+        curr_row += 2
+
+        worksheet_taxes.write(curr_row, start_col+1, "Налоги, которые будут удержаны в конце года или при выводе средств")
+        # worksheet_taxes.set_row(curr_row, None, None, {"level": 1})
+        curr_row += 1
+        set_columns_and_headings(worksheet_taxes, columns, curr_row, start_col+1)  
+        curr_row += 1
+        summ_taxes = 0
+        for operation in my_operations:
+            if operation.op_type in ["Dividend", "Coupon"]:
+                worksheet_taxes.set_row(curr_row, None, None, {"level": 2})
+                # operation's date
+                worksheet_taxes.write(curr_row, start_col+1, operation.op_date.strftime('%Y %m %d  %H:%M'),
+                                      cell_format['left'])
+                # operation's ticker
+                worksheet_taxes.write(curr_row, start_col + 2, operation.op_ticker,
+                                      cell_format['left'])
+
+                # operation's value (payment in the operation's currency)
+                if operation.op_currency in supported_currencies:
+                    worksheet_taxes.write(curr_row, start_col + 3, operation.op_payment,
+                                          cell_format[operation.op_currency])
+                    worksheet_taxes.write(curr_row, start_col + 4, operation.op_payment_rub,
+                                          cell_format['RUB'])
+                    tax = round(operation.op_payment_rub * Decimal(0.13), 2)
+                    summ_taxes += tax
+                    worksheet_taxes.write(curr_row, start_col + 5, tax,
+                                          cell_format['RUB'])
+                else:
+                    worksheet_taxes.write(curr_row, start_col + 3, 'unknown currency',
+                                          cell_format['right'])
+                curr_row += 1
+        worksheet_taxes.write(curr_row, start_col + 5, summ_taxes, cell_format['RUB-bold-total'])
+
+        curr_row += 2
+
+        worksheet_taxes.set_row(curr_row, None, None, {"level": 1})
+        curr_row += 1
+        worksheet_taxes.write(curr_row, start_col+1, "Налоги, требующие подачи декларации в ФНС")
+        worksheet_taxes.set_row(curr_row, None, None, {"level": 1})
+        curr_row +=1
+        worksheet_taxes.write(curr_row, start_col+2, "Продажа валюты")
+        curr_row +=1
+        worksheet_taxes.write(curr_row, start_col+2, "Доход от акций иностранных эмитентов")
+        curr_row +=1
+        worksheet_taxes.write(curr_row, start_col+2, "Выплата дивидендов в виде акций дочерних компаний")
 
     def print_clarification(s_row, s_col):
         logger.info('printing clarification..')
