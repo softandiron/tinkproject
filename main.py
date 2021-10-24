@@ -13,12 +13,11 @@ import scipy.optimize
 from pprint import pprint
 from copy import copy
 
-from classes import PortfolioOperation, PortfolioPosition
+from classes import PortfolioOperation, PortfolioPosition, PortfolioHistoryObject
 
 import data_parser
 
 from data_parser import database
-from database import PortfolioHistoryObject
 
 import excel_builder
 from excel_builder import build_excel_file, supported_currencies, assets_types
@@ -320,6 +319,9 @@ def create_operations_objects():
             ticker = data_parser.get_ticker_by_figi(this_op.figi)
         else:
             ticker = "None"
+        if ticker == "MAGN":
+            print(this_op)
+            print()
 
         # payment_RUB
         if this_op.currency in supported_currencies:
