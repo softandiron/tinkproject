@@ -145,3 +145,44 @@ class PortfolioOperation:
     def op_in_last_365_days(self):
         tz_info = self.op_date.tzinfo
         return self.op_date > datetime.now(tz_info) - timedelta(days=365)
+
+
+class PortfolioOperationsList(list):
+
+    def operations_by_ticker(self, ticker=""):
+        """Возвращает список операций, отфильтрованных по тикеру
+
+        Args:
+            ticker (str, list, optional): Тикер или список тикеров для поиска. Defaults to "".
+
+        Returns:
+            PortfolioOperationList: список отфильтрованных операций
+        """
+        if ticker == "":
+            return self
+        if type(ticker) is str:
+            ticker = [ticker, ]
+        out = PortfolioOperationsList()
+        for item in self:
+            if item.op_ticker in ticker:
+                out.append(item)
+        return out
+
+    def operations_by_type(self, op_type=""):
+        """Возвращает список операций, отфильтрованных по типу транзакции
+
+        Args:
+            type (str, list, optional): Тип или список типов для поиска. Defaults to "".
+
+        Returns:
+            PortfolioOperationList: список отфильтрованных операций
+        """
+        if op_type == "":
+            return self
+        if type(op_type) is str:
+            op_type = [op_type, ]
+        out = PortfolioOperationsList()
+        for item in self:
+            if item.op_type in op_type:
+                out.append(item)
+        return out
