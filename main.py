@@ -11,7 +11,7 @@ from decimal import Decimal
 import operator
 import scipy.optimize
 
-from classes import PortfolioOperation, PortfolioPosition
+from classes import PortfolioOperation, PortfolioPosition, PortfolioOperationsList
 
 import data_parser
 
@@ -265,9 +265,7 @@ def calculate_iis_deduction():
     logger.info("calculating IIS deductions data")
 
     year_sums = {}
-    for operation in my_operations:
-        if operation.op_type != 'PayIn':
-            continue
+    for operation in my_operations.operations_by_type("PayIn"):
         # По состоянию на 08.09.2021 пополнять ИИС можно только рублями,
         # Поэтому проверка формальная на случай - если вдруг это изменится
         operation_year = int(operation.op_date.strftime('%Y'))
@@ -306,7 +304,7 @@ def calculate_iis_deduction():
 
 def create_operations_objects():
     logger.info('creating operations objects..')
-    my_operations = list()
+    my_operations = PortfolioOperationsList()
     for this_op in operations.payload.operations:
         date = datetime.date(this_op.date)
         rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
