@@ -226,16 +226,15 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
             # body
             start_row += 1
             worksheet_ops.write(start_row, start_col, 'start', cell_format['right'])
-            for operation in my_operations:
-                if operation.op_type == ops_type:
-                    # operation's date
-                    worksheet_ops.write(start_row, start_col, operation.op_date.strftime('%Y %b %d  %H:%M'), cell_format['left'])
-                    # operation's value (payment in the operation's currency)
-                    if operation.op_currency in supported_currencies:
-                        worksheet_ops.write(start_row, start_col + 1, operation.op_payment, cell_format[operation.op_currency])
-                    else:
-                        worksheet_ops.write(start_row, start_col + 1, 'unknown currency', cell_format['right'])
-                    start_row += 1
+            for operation in my_operations.operations_by_type(ops_type):
+                # operation's date
+                worksheet_ops.write(start_row, start_col, operation.op_date.strftime('%Y %b %d  %H:%M'), cell_format['left'])
+                # operation's value (payment in the operation's currency)
+                if operation.op_currency in supported_currencies:
+                    worksheet_ops.write(start_row, start_col + 1, operation.op_payment, cell_format[operation.op_currency])
+                else:
+                    worksheet_ops.write(start_row, start_col + 1, 'unknown currency', cell_format['right'])
+                start_row += 1
 
             finish_row = start_row + 1
             return finish_row
@@ -255,22 +254,21 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
             # body
             start_row += 1
             worksheet_ops.write(start_row, start_col, 'start', cell_format['right'])
-            for operation in my_operations:
-                if operation.op_type == ops_type:
-                    # operation's date
-                    worksheet_ops.write(start_row, start_col, operation.op_date.strftime('%Y %b %d  %H:%M'),
-                                        cell_format['left'])
-                    # operation's ticker
-                    worksheet_ops.write(start_row, start_col + 1, operation.op_ticker,
-                                        cell_format['left'])
+            for operation in my_operations.operations_by_type(ops_type):
+                # operation's date
+                worksheet_ops.write(start_row, start_col, operation.op_date.strftime('%Y %b %d  %H:%M'),
+                                    cell_format['left'])
+                # operation's ticker
+                worksheet_ops.write(start_row, start_col + 1, operation.op_ticker,
+                                    cell_format['left'])
 
-                    # operation's value (payment in the operation's currency)
-                    if operation.op_currency in supported_currencies:
-                        worksheet_ops.write(start_row, start_col + 2, operation.op_payment,
-                                            cell_format[operation.op_currency])
-                    else:
-                        worksheet_ops.write(start_row, start_col + 2, 'unknown currency', cell_format['right'])
-                    start_row += 1
+                # operation's value (payment in the operation's currency)
+                if operation.op_currency in supported_currencies:
+                    worksheet_ops.write(start_row, start_col + 2, operation.op_payment,
+                                        cell_format[operation.op_currency])
+                else:
+                    worksheet_ops.write(start_row, start_col + 2, 'unknown currency', cell_format['right'])
+                start_row += 1
 
             finish_row = start_row + 1
             return finish_row
@@ -364,10 +362,9 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
         start_col = 1
         start_row = 6
         years = []
-        for operation in my_operations:
-            if operation.op_type == 'Coupon' or operation.op_type == 'Dividend':
-                if operation.op_date.strftime('%Y') not in years:
-                    years.append(operation.op_date.strftime('%Y'))
+        for operation in my_operations.operations_by_type(['Coupon', 'Dividend']):
+            if operation.op_date.strftime('%Y') not in years:
+                years.append(operation.op_date.strftime('%Y'))
 
         operations_in_last_12_months = []  # needed for dividend salary
 
@@ -386,38 +383,36 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
 
             # content
             operations_per_year = []
-            for operation in my_operations:
-                if operation.op_type == 'Coupon' or operation.op_type == 'Dividend':
-                    if operation.op_date.strftime('%Y') == year:
-                        # print ticker
-                        worksheet_divs.write(start_row, start_col, operation.op_ticker,cell_format['left'])
-                        # print date
-                        worksheet_divs.write(start_row, start_col + 1, operation.op_date.strftime('%Y %b %d'), cell_format['center'])
-                        # print value
-                        if operation.op_currency in supported_currencies:
-                            worksheet_divs.write(start_row, start_col + 2, operation.op_payment, cell_format[operation.op_currency])
-                        else:
-                            worksheet_divs.write(start_row, start_col + 2, 'unknown currency', cell_format['right'])
-                        # print tax
-                        tax_payment = 0
-                        for tax_op in my_operations:
-                            if (tax_op.op_type == 'TaxCoupon' or tax_op.op_type == 'TaxDividend'):
-                                if tax_op.op_ticker == operation.op_ticker and tax_op.op_date.strftime('%Y %b %d') == \
-                                        operation.op_date.strftime('%Y %b %d'):
-                                    tax_payment = tax_op.op_payment
-                                    worksheet_divs.write(start_row, start_col + 3, tax_payment,
-                                                         cell_format[tax_op.op_currency])
-                        if tax_payment == 0:
-                            worksheet_divs.write(start_row, start_col + 3, '*', cell_format['right'])
+            for operation in my_operations.operations_by_type(['Coupon', 'Dividend']):
+                if operation.op_date.strftime('%Y') == year:
+                    # print ticker
+                    worksheet_divs.write(start_row, start_col, operation.op_ticker,cell_format['left'])
+                    # print date
+                    worksheet_divs.write(start_row, start_col + 1, operation.op_date.strftime('%Y %b %d'), cell_format['center'])
+                    # print value
+                    if operation.op_currency in supported_currencies:
+                        worksheet_divs.write(start_row, start_col + 2, operation.op_payment, cell_format[operation.op_currency])
+                    else:
+                        worksheet_divs.write(start_row, start_col + 2, 'unknown currency', cell_format['right'])
+                    # print tax
+                    tax_payment = 0
+                    for tax_op in my_operations.operations_by_type(['TaxCoupon', 'TaxDividend']):
+                        if tax_op.op_ticker == operation.op_ticker and tax_op.op_date.strftime('%Y %b %d') == \
+                                operation.op_date.strftime('%Y %b %d'):
+                            tax_payment = tax_op.op_payment
+                            worksheet_divs.write(start_row, start_col + 3, tax_payment,
+                                                    cell_format[tax_op.op_currency])
+                    if tax_payment == 0:
+                        worksheet_divs.write(start_row, start_col + 3, '*', cell_format['right'])
 
-                        # print value RUB
-                        worksheet_divs.write(start_row, start_col + 4, operation.op_payment_rub - abs(tax_payment),
-                                             cell_format['RUB'])
+                    # print value RUB
+                    worksheet_divs.write(start_row, start_col + 4, operation.op_payment_rub - abs(tax_payment),
+                                            cell_format['RUB'])
 
-                        operations_per_year.append(operation.op_payment_rub - abs(tax_payment))
-                        if operation.op_in_last_12_months == True:
-                            operations_in_last_12_months.append(operation.op_payment_rub - abs(tax_payment))
-                        start_row += 1
+                    operations_per_year.append(operation.op_payment_rub - abs(tax_payment))
+                    if operation.op_in_last_12_months == True:
+                        operations_in_last_12_months.append(operation.op_payment_rub - abs(tax_payment))
+                    start_row += 1
             # print sum
             worksheet_divs.write(start_row + 1, start_col + 4, sum(operations_per_year), cell_format['RUB'])
             start_col += 6
