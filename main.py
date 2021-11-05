@@ -148,7 +148,9 @@ def get_average_percent():
             yield_list.append(this_pos.exp_yield * market_rate_today[this_pos.currency])
         else:
             logger.warning(f'Unsupported currency: {this_pos.currency}')
-    return (sum(yield_list) / sum(sum_buy_list)) * 100
+    if sum(sum_buy_list) > 0:
+        return (sum(yield_list) / sum(sum_buy_list)) * 100
+    return 0
 
 
 def get_portfolio_cost_rub_market():
