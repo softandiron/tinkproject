@@ -5,7 +5,7 @@ import logging
 from decimal import Decimal
 from tinvest.schemas import SearchMarketInstrument
 
-from classes import PortfolioHistoryObject
+from classes import PortfolioHistoryObject, PortfolioHistoryList
 
 db_logger = logging.getLogger("DB")
 db_logger.setLevel(logging.INFO)
@@ -219,7 +219,7 @@ class Database:
             rows = self.cursor.execute(sql_s, (account_id, figi)).fetchall()
         except sqlite3.Error as e:
             db_logger.error("Error getting portfolio history", e)
-        out = []
+        out = PortfolioHistoryList()
         for row in rows:
             obj_date = datetime.fromisoformat(row['buy_date'])
             obj = PortfolioHistoryObject(row['account_id'], row['figi'],

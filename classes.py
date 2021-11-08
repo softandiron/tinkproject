@@ -267,3 +267,25 @@ class PortfolioHistoryObject:
 
         price_diff = self.sell_total_rub() - self.buy_total_rub()
         return price_diff - buy_commission_rub - sell_commission_rub
+
+
+class PortfolioHistoryList(list):
+
+    def filter_by_ticker(self, ticker=""):
+        """Возвращает список записей истории, отфильтрованных по тикеру
+
+        Args:
+            ticker (str, list, optional): Тикер или список тикеров для поиска. Defaults to "".
+
+        Returns:
+            PortfolioHistoryList: список отфильтрованных операций
+        """
+        if ticker == "":
+            return self
+        if type(ticker) is str:
+            ticker = [ticker, ]
+        out = PortfolioHistoryList()
+        for item in self:
+            if item.ticker in ticker:
+                out.append(item)
+        return out

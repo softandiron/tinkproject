@@ -47,9 +47,23 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     cell_format['left'] = workbook.add_format({'align': 'left'})
     cell_format['bold_center'] = workbook.add_format({'align': 'center', 'bold': True})
     cell_format['bold_right'] = workbook.add_format({'align': 'right', 'bold': True})
+
+    collapsed_bg_color = "#EEEEEE"  # light gray
+    cell_format['center_collapsed'] = workbook.add_format({'align': 'center'})
+    cell_format['center_collapsed'].set_bg_color(collapsed_bg_color)
+    cell_format['right_collapsed'] = workbook.add_format({'align': 'right'})
+    cell_format['right_collapsed'].set_bg_color(collapsed_bg_color)
+    cell_format['left_collapsed'] = workbook.add_format({'align': 'left'})
+    cell_format['left_collapsed'].set_bg_color(collapsed_bg_color)
+    cell_format['bold_center_collapsed'] = workbook.add_format({'align': 'center', 'bold': True})
+    cell_format['bold_center_collapsed'].set_bg_color(collapsed_bg_color)
+
     for currency, data in currencies.currencies_data.items():
         cell_format[currency] = workbook.add_format({'num_format': data['num_format'],
                                                      'align': 'right'})
+        cell_format[currency + "_collapsed"] = workbook.add_format({'num_format': data['num_format'],
+                                                                    'align': 'right'})
+        cell_format[currency + "_collapsed"].set_bg_color(collapsed_bg_color)
         cell_format[f'{currency}-bold'] = workbook.add_format({'num_format': data['num_format'],
                                                                'align': 'right', 'bold': True})
         cell_format[f'{currency}-bold-total'] = workbook.add_format({'num_format': data['num_format'],
@@ -108,12 +122,85 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
             worksheet_port.write(s_row - 2, s_col + 9, f"USD = {market_rate_today['USD']}", cell_format['center'])
             worksheet_port.write(s_row - 2, s_col + 10, f"EUR = {market_rate_today['EUR']}", cell_format['center'])
 
+        def print_ticker_history(ticker, start_row, start_col):
+            for i in range(18):
+                worksheet_port.write(start_row, i, "", cell_format['left_collapsed'])
+
+            cols = [
+                # ['name', width, 'format', hidden],
+                # ['', 14, '', False],
+                ['', 14, '', False],
+                ['Ticker', 14, 'bold_center_collapsed', False],
+                ['Buy ammount', 10, 'bold_center_collapsed', False],
+                ['Buy date', 14, 'bold_center_collapsed', False],
+                ['Buy price', 14, 'bold_center_collapsed', False],
+                ['Buy total CB', 14, 'bold_center_collapsed', False],
+                ['Buy commission', 14, 'bold_center_collapsed', False],
+                ['Sell date', 14, 'bold_center_collapsed', False],
+                ['Sell ammount', 10, 'bold_center_collapsed', False],
+                ['Sell/Curr price', 14, 'bold_center_collapsed', False],
+                ['Sell/Curr total CB', 14, 'bold_center_collapsed', False],
+                ['Sell commission', 14, 'bold_center_collapsed', False],
+                ['Days', 16, 'bold_center_collapsed', False, 'Количество дней владения'],
+                ['Years', 16, 'bold_center_collapsed', False, 'Целое количество лет владения'],
+                ['', 14, 'bold_center_collapsed', False],
+                ['Tax base', 14, 'bold_center_collapsed', False,
+                 'Сумма продажи - Сумма покупки - Комиссия покупки - Комиссия продажи'],
+            ]
+            set_columns_and_headings(worksheet_port, cols, start_row, start_col)
+            worksheet_port.set_row(start_row, None, None, {"level": 2, 'hidden': True})
+
+            start_row += 1
+
+            for record in sum_profile['history'].filter_by_ticker(ticker):
+                if record.buy_ammount == 0:
+                    # Если заявка не выполнена - пропускаем
+                    # В портфолио - пустые заявки - это просто информационный шум
+                    continue
+                for i in range(18):
+                    worksheet_port.write(start_row, i, "", cell_format['left_collapsed'])
+                worksheet_port.set_row(start_row, None, None, {"level": 2, 'hidden': True})
+                # worksheet_parts.write(start_row, start_col + 2, type_data['value'], cell_format[currency])
+                # worksheet_port.write(start_row, start_col-1, record.figi)
+                worksheet_port.write(start_row, start_col+1, record.ticker, cell_format['right_collapsed'])
+                worksheet_port.write(start_row, start_col+3, record.buy_date.strftime("%Y-%m-%d"), cell_format['right_collapsed'])
+
+                worksheet_port.write(start_row, start_col+2, record.buy_ammount, cell_format['right_collapsed'])
+                worksheet_port.write(start_row, start_col+4, record.buy_price, cell_format[record.buy_currency + "_collapsed"])
+                worksheet_port.write(start_row, start_col+5, record.buy_total_rub(), cell_format["RUB_collapsed"])
+                worksheet_port.write(start_row, start_col+6, record.buy_commission, cell_format[record.buy_currency + "_collapsed"])
+
+                worksheet_port.write(start_row, start_col+12, record.days(), cell_format['right_collapsed'])
+                worksheet_port.write(start_row, start_col+13, record.years(), cell_format['right_collapsed'])
+
+                if record.sell_date is not None:
+                    worksheet_port.write(start_row, start_col+7, record.sell_date.strftime("%Y-%m-%d"), cell_format['right_collapsed'])
+                    worksheet_port.write(start_row, start_col+8, record.sell_ammount, cell_format['right_collapsed'])
+                    worksheet_port.write(start_row, start_col+9, record.sell_price, cell_format[record.sell_currency + "_collapsed"])
+                    worksheet_port.write(start_row, start_col+10, record.sell_total_rub(), cell_format["RUB_collapsed"])
+
+                    worksheet_port.write(start_row, start_col+11, record.sell_commission, cell_format[record.sell_currency + "_collapsed"])
+                    # worksheet_port.write(start_row, start_col+12, record.sell_operation_id)
+                else:
+                    worksheet_port.write(start_row, start_col+9, record.current_price, cell_format[record.buy_currency + "_collapsed"])
+                    worksheet_port.write(start_row, start_col+10, record.sell_total_rub(), cell_format["RUB_collapsed"])
+
+                worksheet_port.write(start_row, start_col+15, record.tax_base(), cell_format["RUB_collapsed"])
+
+                # worksheet_port.write(start_row, start_col+16, record.rowid)
+                # worksheet_port.write(start_row, start_col+17, record.buy_operation_id)
+
+                start_row += 1
+            return start_row
+
         def print_content(pos_type):
             logger.info('content printing: ' + pos_type + 's')
             row = s_row + 1
             col = s_col
             for this_pos in my_positions:
                 def print_position_data(row, col):
+                    row = print_ticker_history(this_pos.ticker, row, col)
+
                     worksheet_port.write(row, col, this_pos.name, cell_format['left'])
                     worksheet_port.write(row, col + 1, this_pos.ticker, cell_format['left'])
                     worksheet_port.write(row, col + 2, this_pos.balance, cell_format['left'])
