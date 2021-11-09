@@ -5,6 +5,9 @@ import xlsxwriter
 import data_parser
 
 import currencies
+
+from configuration import Config
+
 # For backward compatability - needs to be deprecated later
 # after merging parts tables
 supported_currencies = currencies.supported_currencies
@@ -27,7 +30,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                      investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate):
 
     logger.info('creating excel file..')
-    excel_file_name = 'tinkoffReport_' + data_parser.account_data['now_date'].strftime('%Y.%b.%d') + '_'\
+    excel_file_name = 'tinkoffReport_' + config.now_date.strftime('%Y.%b.%d') + '_'\
                       + account.broker_account_id + '.xlsx'
     workbook = xlsxwriter.Workbook(excel_file_name)
     workbook.set_size(1440, 1024)  # set default window size
@@ -59,7 +62,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     merge_format['left_small'] = workbook.add_format({'align': 'left', 'valign': 'vcenter', 'bold': False, 'font_size': '9'})
 
     worksheet_port.set_column('A:A', 16)
-    worksheet_port.write(0, 0, data_parser.account_data['now_date'].strftime('%Y %b %d  %H:%M'), cell_format['bold_center'])
+    worksheet_port.write(0, 0, config.now_date.strftime('%Y %b %d  %H:%M'), cell_format['bold_center'])
 
     def print_portfolio(s_row, s_col):
         logger.info('building portfolio table..')
@@ -670,3 +673,6 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     # finish Excel
     logger.info('Excel file composed! With name: '+excel_file_name)
     workbook.close()
+
+
+config = Config()
