@@ -329,7 +329,8 @@ def create_operations_objects():
                                                 this_op.currency,
                                                 this_op.payment,
                                                 ticker, payment_rub,
-                                                this_op.figi))
+                                                this_op.figi,
+                                                this_op.status.value))
 
     logger.info('..operations are ready')
     return my_operations

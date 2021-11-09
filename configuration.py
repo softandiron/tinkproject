@@ -61,6 +61,7 @@ class Config:
                 self._write_config_to_file()
             defaults = {
                 'parse': True,
+                'show empty operations': False,
                 'name': f'account-{id}',
                 'filename': f'tinkoffReport_%%Y.%%b.%%d_{id}',
             }
@@ -121,3 +122,17 @@ class Config:
         name = self.__config[str(account_id)]['name']
         logger.debug(name)
         return str(name)
+
+    def get_account_show_empty_operations(self, account_id):
+        """Возвращает надо ли показывать невыполненнные операции
+
+        Args:
+            account_id (int): номер брокерского счета для API
+
+        Returns:
+            [boolean]: True - если показывать.
+        """
+        logger.warn(f"Get empty operations status for account {account_id}")
+        status = self.__config[str(account_id)].getboolean('show empty operations')
+        logger.warn(status)
+        return bool(status)

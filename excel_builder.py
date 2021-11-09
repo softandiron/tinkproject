@@ -212,6 +212,10 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     def print_operations(s_row, s_col):
         logger.info('building operations table..')
         start_col = 1
+        account_id = account.broker_account_id
+        # запрашиваем - нужно ли показывать "пустые"/невыполненные операции
+        show_empty = config.get_account_show_empty_operations(account_id)
+
         def print_operations_by_type(ops_type, start_row, start_col):
             # set column width
             worksheet_ops.set_column(start_col, start_col, 18, cell_format['right'])
@@ -226,6 +230,9 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
             start_row += 1
             worksheet_ops.write(start_row, start_col, 'start', cell_format['right'])
             for operation in my_operations:
+                if operation.op_status != "Done" and not show_empty:
+                    # не показывать "пустые"/невыполненнные операции
+                    continue
                 if operation.op_type == ops_type:
                     # operation's date
                     worksheet_ops.write(start_row, start_col, operation.op_date.strftime('%Y %b %d  %H:%M'), cell_format['left'])
@@ -255,6 +262,9 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
             start_row += 1
             worksheet_ops.write(start_row, start_col, 'start', cell_format['right'])
             for operation in my_operations:
+                if operation.op_status != "Done" and not show_empty:
+                    # не показывать "пустые"/невыполненнные операции
+                    continue
                 if operation.op_type == ops_type:
                     # operation's date
                     worksheet_ops.write(start_row, start_col, operation.op_date.strftime('%Y %b %d  %H:%M'),
