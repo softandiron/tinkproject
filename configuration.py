@@ -42,8 +42,6 @@ class Config:
                 'start_year': int(start_year),
                 'start_month': int(start_month),
                 'start_day': int(start_day),
-                'start_date': datetime(int(start_year), int(start_month), int(start_day), 0, 0, 0,
-                                       tzinfo=my_timezone)
             }
             self._write_config_to_file()
 
@@ -55,12 +53,10 @@ class Config:
         # проверяет наличие конфигурации для аккаунтов, если надо - дописывает ее в файл
         for account in accounts:
             id = account.broker_account_id
-            acc_type = account.broker_account_type
             if id not in self.__config:
                 logger.info(f"New account found - {id} - adding config")
                 self.__config[id] = {
                     'id': id,
-                    'type': str(acc_type),
                 }
                 self._write_config_to_file()
             defaults = {
@@ -80,8 +76,48 @@ class Config:
     def token(self):
         return self.__config['DEFAULT']['token']
 
-    def parse_account(self, account_id):
+    @property
+    def start_date(self):
+        start_date = datetime(int(self.__config['DEFAULT']['start_year']),
+                              int(self.__config['DEFAULT']['start_month']),
+                              int(self.__config['DEFAULT']['start_day']),
+                              0, 0, 0, tzinfo=timezone(self.__config['DEFAULT']['timezone']))
+        return start_date
+
+    @property
+    def now_date(self):
+        """Возвращает текущую дату.
+           Оставлено для обратной совместимости.
+
+        Returns:
+            [datetime]: текущие время и дата
+        """
+        return datetime.now()
+
+    def get_account_parse_status(self, account_id):
+        """Возвращает надо ли обрабатывать запрашиваемый счет
+
+        Args:
+            account_id (int): номер брокерского счета для API
+
+        Returns:
+            [boolean]: True - если обрабатывать.
+        """
         logger.debug(f"Get parse status for account {account_id}")
         status = self.__config[str(account_id)].getboolean('parse')
         logger.debug(status)
         return bool(status)
+
+    def get_account_name(self, account_id):
+        """Возвращает пользовательское название запрашиваемого счета
+
+        Args:
+            account_id (int): номер брокерского счета для API
+
+        Returns:
+            [str]: пользовательское имя счета
+        """
+        logger.debug(f"Get name for account {account_id}")
+        name = self.__config[str(account_id)]['name']
+        logger.debug(name)
+        return str(name)
