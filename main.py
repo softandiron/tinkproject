@@ -322,7 +322,7 @@ def create_operations_objects():
         if this_op.currency in supported_currencies:
             payment_rub = this_op.payment * rate_for_date[this_op.currency]
         else:
-            logger.warning('unknown currency in position: ' + this_op.name)
+            logger.warning('unknown currency in operation: ' + this_op)
             payment_rub = 0
 
         my_operations.append(PortfolioOperation(this_op.operation_type,
