@@ -104,7 +104,9 @@ class PortfolioPosition:
 
     @property
     def percent_change(self):
-        return ((self.market_price / self.ave_price) * 100) - 100
+        if self.ave_price > 0:
+            return ((self.market_price / self.ave_price) * 100) - 100
+        return 0
 
     @property
     def sum_buy(self):
