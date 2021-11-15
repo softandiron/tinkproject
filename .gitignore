@@ -1,5 +1,5 @@
 my_account.txt
-config.ini
+config.yaml
 *.xlsx
 __pycache__/
 .DS_Store
