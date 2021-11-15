@@ -1,11 +1,12 @@
 # tinkproject
+
 The program for portfolio analysis via Tinkoff API
 
-Hello! This is my first project, please, don't judge me. This project was developed for Tinkoff Investments' clients, like me, to gether accurate and full information about portfolio into Excel table.
+Hello! This is my first project, please, don't judge me. This project was developed for Tinkoff Investments' clients, like me, to gather accurate and full information about portfolio into Excel table.
 
 Здравствуйте! Это мой первый проект, пожалуйста не судите строго. Этот проект был разработан для клиентов Тинькофф Инвестиций, чтобы собирать подробную информацию об инвестиционном портфеле в таблицу Excel.
 
-Статья на Хабре: https://habr.com/en/post/555884/
+Статья на Хабре: [Что недоговаривают Тинькофф Инвестиции. Вытаскиваем все данные по портфелю через API в большую таблицу Excel](https://habr.com/en/post/555884/)
 
 Для автоматического сбора информации используется Tinkoff API. Для использования вам нужно получить *токен для OpenAPI* в личном кабинете Тинькофф.
 
@@ -20,6 +21,8 @@ Hello! This is my first project, please, don't judge me. This project was develo
 Месяц начала инвестирования
 День начала инвестирования
 ```
+
+Подробнее о файле настроек скрипта можно почитать в разедел [Файл настроек](docs/configuration.md).
 
 Программа будет собирать данные за указанный вами период по всем брокерским счетам (включая ИИС). Для работы программы все файлы программы: `main.py`, `excel_builder.py`, `data_parser.py`, `my_account.txt` - должны находиться в одной папке. В этой же папке появятся файлы Excel с результатом (один на каждый счёт).
 
