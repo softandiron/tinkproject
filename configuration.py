@@ -1,18 +1,25 @@
-import configparser
 import logging
 import os.path
-
 
 from datetime import datetime
 from pytz import timezone
 
 logger = logging.getLogger("Config")
+logger.setLevel(logging.DEBUG)
+
+try:
+    import yaml
+    yaml_installed = True
+except ImportError:
+    yaml_installed = False
+    logger.critical("YAML не установлен. Функциональность ограничена")
+    logger.critical("Для получения полной функциональности выполните pip3 install pyyaml")
 
 
 class Config:
     __instance = None
 
-    __config = configparser.ConfigParser()
+    __config = {}
 
     def __new__(self, *args):
         # Singleton - позволяет иметь только один экземпляр класса
@@ -20,34 +27,38 @@ class Config:
             self.__instance = object.__new__(self, *args)
         return self.__instance
 
-    def __init__(self, config_file_name="config.ini"):
+    def __init__(self, config_file_name="config.yaml"):
         self.config_file_name = config_file_name
 
-        if os.path.isfile(config_file_name):
+        if os.path.isfile(config_file_name) and yaml_installed:
             #  config file found
-            self.__config.read(config_file_name)
-        else:
+            with open(self.config_file_name) as config_file:
+                self.__config = yaml.safe_load(config_file)
+        if self.__config == {}:
             #  Если файла нет - пробуем заполнить его из старой версии конфигурации
             logger.info('getting account data..')
             with open(file='my_account.txt') as token_file:
                 my_token = token_file.readline().rstrip('\n')
-                my_timezone = timezone(token_file.readline().rstrip('\n'))
+                my_timezone = token_file.readline().rstrip('\n')
                 start_year = token_file.readline().rstrip('\n')
                 start_month = token_file.readline().rstrip('\n')
                 start_day = token_file.readline().rstrip('\n')
 
-            self.__config['DEFAULT'] = {
+            self.__config.update({
                 'token': my_token,
                 'timezone': my_timezone,
                 'start_year': int(start_year),
                 'start_month': int(start_month),
                 'start_day': int(start_day),
-            }
+            })
             self._write_config_to_file()
 
     def _write_config_to_file(self):
+        if not yaml_installed:
+            # Если yaml не установлен - ничего не делаем
+            return
         with open(self.config_file_name, 'w') as config_file:
-            self.__config.write(config_file)
+            yaml.dump(self.__config, config_file, encoding="utf-8", sort_keys=True)
 
     def check_accounts_config(self, accounts):
         # проверяет наличие конфигурации для аккаунтов, если надо - дописывает ее в файл
@@ -75,14 +86,14 @@ class Config:
 
     @property
     def token(self):
-        return self.__config['DEFAULT']['token']
+        return self.__config['token']
 
     @property
     def start_date(self):
-        start_date = datetime(int(self.__config['DEFAULT']['start_year']),
-                              int(self.__config['DEFAULT']['start_month']),
-                              int(self.__config['DEFAULT']['start_day']),
-                              0, 0, 0, tzinfo=timezone(self.__config['DEFAULT']['timezone']))
+        start_date = datetime(int(self.__config['start_year']),
+                              int(self.__config['start_month']),
+                              int(self.__config['start_day']),
+                              0, 0, 0, tzinfo=timezone(self.__config['timezone']))
         return start_date
 
     @property
