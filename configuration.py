@@ -5,7 +5,6 @@ from datetime import datetime
 from pytz import timezone
 
 logger = logging.getLogger("Config")
-logger.setLevel(logging.DEBUG)
 
 try:
     import yaml
@@ -173,6 +172,39 @@ class Config:
         name = self.__config[str(account_id)]['name']
         logger.debug(name)
         return str(name)
+
+    def get_account_filename(self, account_id):
+        """Возвращает имя файла запрашиваемого счета
+
+        Args:
+            account_id (int): номер брокерского счета для API
+
+        Returns:
+            [str]: имя файла для счета
+        """
+        logger.debug(f"Get filename for account {account_id}")
+        acc_name = self.get_account_name(account_id)
+        def_name = datetime.now().strftime(f"tinkoffReport_%Y.%b.%d_{account_id}")
+        logger.debug(def_name)
+        if account_id not in self.__config.keys():
+            logger.error(f"Нет настроек для аккаунта {acc_name} - {account_id}.")
+            logger.error("Используем значение по умолчанию.")
+            return def_name
+        if 'name' not in self.__config[account_id].keys():
+            logger.error(f"Нет настроек имени файла для аккаунта {acc_name} - {account_id}.")
+            logger.error("Используем значение по умолчанию.")
+            return def_name
+        name_template = self.__config[str(account_id)]['filename']
+        try:
+            filename = datetime.now().strftime(name_template)
+        except:
+            logger.error("Ошибка обработка шаблона имени файла {acc_name} - {account_id}.")
+            filename = def_name
+        logger.debug(name_template)
+        logger.debug(filename)
+        if filename == "":
+            return def_name
+        return filename
 
     def get_account_show_empty_operations(self, account_id):
         """Возвращает надо ли показывать невыполненнные операции

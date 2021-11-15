@@ -30,8 +30,8 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                      investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate):
 
     logger.info('creating excel file..')
-    excel_file_name = 'tinkoffReport_' + config.now_date.strftime('%Y.%b.%d') + '_'\
-                      + account.broker_account_id + '.xlsx'
+    excel_file_name = config.get_account_filename(account.broker_account_id)
+    excel_file_name = str(excel_file_name) + '.xlsx'
     workbook = xlsxwriter.Workbook(excel_file_name)
     workbook.set_size(1440, 1024)  # set default window size
     worksheet_port = workbook.add_worksheet("Portfolio")
