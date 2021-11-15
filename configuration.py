@@ -37,6 +37,9 @@ class Config:
         if self.__config == {}:
             #  Если файла нет - пробуем заполнить его из старой версии конфигурации
             logger.info('getting account data..')
+            if not os.path.isfile("my_account.txt"):
+                logger.critical("Default (my_account.txt) config file not found!")
+                exit()
             with open(file='my_account.txt') as token_file:
                 my_token = token_file.readline().rstrip('\n')
                 my_timezone = token_file.readline().rstrip('\n')
@@ -106,6 +109,26 @@ class Config:
         """
         return datetime.now()
 
+    @staticmethod
+    def parse_boolean(in_value):
+        if isinstance(in_value, bool):
+            return in_value
+        elif isinstance(in_value, (int, float)):
+            if in_value <= 0:
+                # 0 и отрицательные числа - False
+                return False
+            # Все, что больше ноля - True
+            return True
+        elif isinstance(in_value, str):
+            value = in_value.lower()
+            if value in ["true", "yes", "on", "1"]:
+                return True
+            elif value in ["false", "no", "off", "0"]:
+                return False
+        logger.critical("Value cannot be parsed to boolean! Set to True")
+        logger.critical(in_value)
+        return True
+
     def get_account_parse_status(self, account_id):
         """Возвращает надо ли обрабатывать запрашиваемый счет
 
@@ -116,9 +139,18 @@ class Config:
             [boolean]: True - если обрабатывать.
         """
         logger.debug(f"Get parse status for account {account_id}")
-        status = self.__config[str(account_id)].getboolean('parse')
-        logger.debug(status)
-        return bool(status)
+        if account_id not in self.__config.keys():
+            logger.error(f"Нет настроек для аккаунта {account_id}.")
+            logger.error("Используем значение по умолчанию.")
+            return True
+        if 'parse' not in self.__config[account_id].keys():
+            logger.error(f"Нет настроек необходимости обработки для аккаунта {account_id}.")
+            logger.error("Используем значение по умолчанию.")
+            return True
+        status = self.__config[str(account_id)]['parse']
+        status = self.parse_boolean(status)
+        logger.debug(str(status) + " " + str(type(status)))
+        return status
 
     def get_account_name(self, account_id):
         """Возвращает пользовательское название запрашиваемого счета
@@ -130,6 +162,14 @@ class Config:
             [str]: пользовательское имя счета
         """
         logger.debug(f"Get name for account {account_id}")
+        if account_id not in self.__config.keys():
+            logger.error(f"Нет настроек для аккаунта {account_id}.")
+            logger.error("Используем значение по умолчанию.")
+            return f"account-{account_id}"
+        if 'name' not in self.__config[account_id].keys():
+            logger.error(f"Нет настроек имени для аккаунта {account_id}.")
+            logger.error("Используем значение по умолчанию.")
+            return f"account-{account_id}"
         name = self.__config[str(account_id)]['name']
         logger.debug(name)
         return str(name)
@@ -143,7 +183,16 @@ class Config:
         Returns:
             [boolean]: True - если показывать.
         """
-        logger.warn(f"Get empty operations status for account {account_id}")
-        status = self.__config[str(account_id)].getboolean('show empty operations')
-        logger.warn(status)
-        return bool(status)
+        logger.debug(f"Get empty operations status for account {account_id}")
+        if account_id not in self.__config.keys():
+            logger.error(f"Нет настроек для аккаунта {account_id}.")
+            logger.error("Используем значение по умолчанию.")
+            return False
+        if 'show empty operations' not in self.__config[account_id].keys():
+            logger.error(f"Нет настроек видимости пустых операций для аккаунта {account_id}.")
+            logger.error("Используем значение по умолчанию.")
+            return False
+        status = self.__config[str(account_id)]['show empty operations']
+        status = self.parse_boolean(status)
+        logger.debug(str(status) + " " + str(type(status)))
+        return status
