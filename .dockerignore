@@ -2,3 +2,7 @@
 LICENSE
 README.md
 *.xlsx
+my_account.txt
+__pycache__/
+.DS_Store
+assets_db.db
