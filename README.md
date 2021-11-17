@@ -28,7 +28,7 @@ Hello! This is my first project, please, don't judge me. This project was develo
 
 ## Запуск
 
-Для работы программы на вашем компьютере должен быть установлен Python 3.9.1
+Для работы программы на вашем компьютере должен быть установлен Python 3.9
 
 Запускается программа командой `python main.py` или через `docker`:
 ```
