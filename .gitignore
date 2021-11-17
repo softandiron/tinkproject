@@ -1,6 +1,7 @@
 my_account.txt
-config.yaml
+*.yaml
 *.xlsx
 __pycache__/
 .DS_Store
+.vscode
 assets_db.db
