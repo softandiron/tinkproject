@@ -68,14 +68,17 @@ def get_accounts():
     accounts = client.get_accounts()
     logging.debug(accounts)
     logger.info('accounts received')
+    # проверяем/создаем разделы для счетов в конфигурации
+    # если завели новый счет - добавит с дефолтным конфигом,
+    # если новые настройки были добавлены в коде - так же добавит
     config.check_accounts_config(accounts.payload.accounts)
     return accounts.payload.accounts
 
 
 def get_api_data(broker_account_id):
-    logger.info("authorisation..")
+    logger.info("authorization..")
     client = tinvest.SyncClient(config.token)
-    logger.info("authorisation success")
+    logger.info("authorization success")
     positions = client.get_portfolio(broker_account_id=broker_account_id)
     operations = client.get_operations(from_=config.start_date,
                                        to=config.now_date,

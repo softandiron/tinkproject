@@ -30,7 +30,7 @@ class Config:
         self.config_file_name = config_file_name
 
         if os.path.isfile(config_file_name) and yaml_installed:
-            #  config file found
+            #  config file found and yaml-parser installed
             with open(self.config_file_name) as config_file:
                 self.__config = yaml.safe_load(config_file)
         if self.__config == {}:
@@ -110,6 +110,10 @@ class Config:
 
     @staticmethod
     def parse_boolean(in_value):
+        # Проверяет на входе данные (строка/число/булево)
+        # возвращает соответствующее значение:
+        # yes, true, 1, on, positive int -> True
+        # no, false, 0, off, 0 or negative int -> False
         if isinstance(in_value, bool):
             return in_value
         elif isinstance(in_value, (int, float)):
@@ -175,6 +179,8 @@ class Config:
 
     def get_account_filename(self, account_id):
         """Возвращает имя файла запрашиваемого счета
+        Прогоняет шаблон через datetime.strftime
+        При ошибке в шаблоне - выдает дефолтный шаблон
 
         Args:
             account_id (int): номер брокерского счета для API
@@ -197,8 +203,9 @@ class Config:
         name_template = self.__config[str(account_id)]['filename']
         try:
             filename = datetime.now().strftime(name_template)
-        except:
+        except Exception as e:
             logger.error("Ошибка обработка шаблона имени файла {acc_name} - {account_id}.")
+            logger.error(e)
             filename = def_name
         logger.debug(name_template)
         logger.debug(filename)
