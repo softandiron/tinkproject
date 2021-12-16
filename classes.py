@@ -138,6 +138,7 @@ class PortfolioOperation:
     op_ticker: str
     op_payment_rub: Decimal
     op_figi: str
+    op_status: str
 
     @property
     def op_in_last_12_months(self):

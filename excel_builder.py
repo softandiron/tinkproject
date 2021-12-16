@@ -5,7 +5,10 @@ import xlsxwriter
 import data_parser
 
 import currencies
-# For backward compatibility - needs to be deprecated later
+
+from configuration import Config
+
+# For backward compatability - needs to be deprecated later
 # after merging parts tables
 supported_currencies = currencies.supported_currencies
 assets_types = ['Stock', 'Bond', 'Etf', 'Other', 'Currency']
@@ -27,8 +30,8 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                      investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate):
 
     logger.info('creating excel file..')
-    excel_file_name = 'tinkoffReport_' + data_parser.account_data['now_date'].strftime('%Y.%b.%d') + '_'\
-                      + account.broker_account_id + '.xlsx'
+    excel_file_name = config.get_account_filename(account.broker_account_id)
+    excel_file_name = str(excel_file_name) + '.xlsx'
     workbook = xlsxwriter.Workbook(excel_file_name)
     workbook.set_size(1440, 1024)  # set default window size
     worksheet_port = workbook.add_worksheet("Portfolio")
@@ -60,7 +63,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     merge_format['left_small'] = workbook.add_format({'align': 'left', 'valign': 'vcenter', 'bold': False, 'font_size': '9'})
 
     worksheet_port.set_column('A:A', 16)
-    worksheet_port.write(0, 0, data_parser.account_data['now_date'].strftime('%Y %b %d  %H:%M'), cell_format['bold_center'])
+    worksheet_port.write(0, 0, config.now_date.strftime('%Y %b %d  %H:%M'), cell_format['bold_center'])
 
     def print_portfolio(s_row, s_col):
         logger.info('building portfolio table..')
@@ -210,6 +213,10 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     def print_operations(s_row, s_col):
         logger.info('building operations table..')
         start_col = 1
+        account_id = account.broker_account_id
+        # запрашиваем - нужно ли показывать "пустые"/невыполненные операции
+        show_empty = config.get_account_show_empty_operations(account_id)
+
         def print_operations_by_type(ops_type, start_row, start_col):
             # set column width
             worksheet_ops.set_column(start_col, start_col, 18, cell_format['right'])
@@ -224,6 +231,9 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
             start_row += 1
             worksheet_ops.write(start_row, start_col, 'start', cell_format['right'])
             for operation in my_operations:
+                if operation.op_status != "Done" and not show_empty:
+                    # не показывать "пустые"/невыполненнные операции
+                    continue
                 if operation.op_type == ops_type:
                     # operation's date
                     worksheet_ops.write(start_row, start_col, operation.op_date.strftime('%Y %b %d  %H:%M'), cell_format['left'])
@@ -253,6 +263,9 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
             start_row += 1
             worksheet_ops.write(start_row, start_col, 'start', cell_format['right'])
             for operation in my_operations:
+                if operation.op_status != "Done" and not show_empty:
+                    # не показывать "пустые"/невыполненнные операции
+                    continue
                 if operation.op_type == ops_type:
                     # operation's date
                     worksheet_ops.write(start_row, start_col, operation.op_date.strftime('%Y %b %d  %H:%M'),
@@ -672,3 +685,6 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     # finish Excel
     logger.info('Excel file composed! With name: '+excel_file_name)
     workbook.close()
+
+
+config = Config()

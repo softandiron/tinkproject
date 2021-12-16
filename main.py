@@ -12,6 +12,7 @@ import operator
 import scipy.optimize
 
 from classes import PortfolioOperation, PortfolioPosition
+from configuration import Config
 
 import data_parser
 
@@ -330,7 +331,8 @@ def create_operations_objects():
                                                 this_op.currency,
                                                 this_op.payment,
                                                 ticker, payment_rub,
-                                                this_op.figi))
+                                                this_op.figi,
+                                                this_op.status.value))
 
     logger.info('..operations are ready')
     return my_operations
@@ -414,7 +416,7 @@ def calculate_xirr(operations, portfolio_value):
         else:
             dates_values_composed[datetime.date(date)] += dates_values_sorted[date]
 
-    dates_values_composed[datetime.date(data_parser.account_data['now_date'])] = int(portfolio_value)
+    dates_values_composed[datetime.date(config.now_date)] = int(portfolio_value)
 
     xirr_value = xirr(dates_values_composed)
     if xirr_value:
@@ -440,19 +442,24 @@ if __name__ == '__main__':
     data_parser.logger.setLevel(logging_level)
     excel_builder.logger.setLevel(logging_level)
 
+    config = Config()
     start_time = time.time()
     tax_rate = 13  # percents
     logger.info('Start')
 
     # get accounts
     accounts = data_parser.get_accounts()
-    for account in accounts.payload.accounts:
+    for account in accounts:
         logger.info(account)
-
+        account_id = account.broker_account_id
+        parse_account = config.get_account_parse_status(account_id)
+        if not parse_account:
+            account_name = config.get_account_name(account_id)
+            logger.warning(f"Account {account_id} ({account_name}) - parsing is OFF")
+            continue
         # from data_parser
-        positions, operations, market_rate_today, currencies = data_parser.get_api_data(account.broker_account_id)
-        account_data = data_parser.parse_text_file()
-        today_date = datetime.date(account_data['now_date'])
+        positions, operations, market_rate_today, currencies = data_parser.get_api_data(account_id)
+        today_date = datetime.date(config.now_date)
         investing_period = data_parser.calc_investing_period()
         investing_period_str = f'{investing_period.years}y {investing_period.months}m {investing_period.days}d'
         rates_today_cb = data_parser.get_exchange_rates_for_date_db(today_date)

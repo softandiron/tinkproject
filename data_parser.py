@@ -9,6 +9,8 @@ from dateutil.relativedelta import relativedelta
 
 from decimal import Decimal
 
+from configuration import Config
+
 import tinvest
 from pycbrf.rates import ExchangeRate
 from pycbrf.toolbox import ExchangeRates
@@ -52,45 +54,34 @@ def get_exchange_rate(date):
 
 
 def calc_investing_period():
-    start_date = account_data['start_date'].replace(tzinfo=None)
-    current_date = account_data['now_date']
+    start_date = config.start_date.replace(tzinfo=None)
+    current_date = config.now_date
     inv_period = relativedelta(current_date, start_date)
     logger.info('investing period: ' + str(inv_period.years) + ' years ' + str(inv_period.months) + ' months '
                                                                          + str(inv_period.days) + ' days')
     return inv_period
 
 
-def parse_text_file(logger=logging.getLogger()):
-    logger.info('getting account data..')
-    with open(file='my_account.txt') as token_file:
-        my_token = token_file.readline().rstrip('\n')
-        my_timezone = timezone(token_file.readline().rstrip('\n'))
-        start_year = token_file.readline().rstrip('\n')
-        start_month = token_file.readline().rstrip('\n')
-        start_day = token_file.readline().rstrip('\n')
-
-    now_date = datetime.now()
-    start_date = datetime(int(start_year), int(start_month), int(start_day), 0, 0, 0, tzinfo=my_timezone)
-    logger.info('account started: ' + start_date.strftime('%Y %b %d '))
-    return {'my_token': my_token, 'my_timezone': my_timezone, 'start_date': start_date, 'now_date': now_date}
-
-
 def get_accounts():
     logger.info('getting accounts')
-    client = tinvest.SyncClient(account_data['my_token'])
+    client = tinvest.SyncClient(config.token)
     accounts = client.get_accounts()
     logging.debug(accounts)
     logger.info('accounts received')
-    return accounts
+    # проверяем/создаем разделы для счетов в конфигурации
+    # если завели новый счет - добавит с дефолтным конфигом,
+    # если новые настройки были добавлены в коде - так же добавит
+    config.check_accounts_config(accounts.payload.accounts)
+    return accounts.payload.accounts
 
 
 def get_api_data(broker_account_id):
-    logger.info("authorisation..")
-    client = tinvest.SyncClient(account_data['my_token'])
-    logger.info("authorisation success")
+    logger.info("authorization..")
+    client = tinvest.SyncClient(config.token)
+    logger.info("authorization success")
     positions = client.get_portfolio(broker_account_id=broker_account_id)
-    operations = client.get_operations(from_=account_data['start_date'],
-                                       to=account_data['now_date'],
+    operations = client.get_operations(from_=config.start_date,
+                                       to=config.now_date,
                                        broker_account_id=broker_account_id)
     market_rate_today = {}
     for currency, data in currencies_data.items():
@@ -109,7 +100,7 @@ def get_current_market_price(figi, depth=0, max_age=10*60):
     if price:
         return price
     try:
-        client = tinvest.SyncClient(account_data['my_token'])
+        client = tinvest.SyncClient(config.token)
         book = client.get_market_orderbook(figi=figi, depth=depth)
         price = book.payload.last_price
     except tinvest.exceptions.TooManyRequestsError:
@@ -132,7 +123,7 @@ def get_figi_history_price(figi, date=datetime.now()):
         return price
     try:
         date_to = date + timedelta(days=1)
-        client = tinvest.SyncClient(account_data['my_token'])
+        client = tinvest.SyncClient(config.token)
         result = client.get_market_candles(figi, date, date_to, tinvest.CandleResolution.day)
         price = (result.payload.candles[0].h+result.payload.candles[0].l)/2
     except tinvest.exceptions.TooManyRequestsError:
@@ -164,7 +155,7 @@ def get_instrument_by_figi(figi, max_age=7*24*60*60):
         return instrument
     logger.debug(f"Need to query instrument for {figi} from API")
     try:
-        client = tinvest.SyncClient(account_data['my_token'])
+        client = tinvest.SyncClient(config.token)
         position_data = client.get_market_search_by_figi(figi)
     except tinvest.exceptions.TooManyRequestsError:
         logger.warn("Превышена частота запросов API. Пауза выполнения.")
@@ -181,5 +172,5 @@ def get_ticker_by_figi(figi, max_age=7*24*60*60):
     return ticker
 
 
-account_data = parse_text_file()
+config = Config()
 database = Database()
