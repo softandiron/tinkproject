@@ -5,7 +5,7 @@ import xlsxwriter
 import data_parser
 
 import currencies
-# For backward compatability - needs to be deprecated later
+# For backward compatibility - needs to be deprecated later
 # after merging parts tables
 supported_currencies = currencies.supported_currencies
 assets_types = ['Stock', 'Bond', 'Etf', 'Other', 'Currency']
@@ -34,6 +34,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     worksheet_port = workbook.add_worksheet("Portfolio")
     worksheet_ops = workbook.add_worksheet("Operations")
     worksheet_divs = workbook.add_worksheet("Coupons and Dividends")
+    worksheet_deduct = workbook.add_worksheet("IIS Deduction")
     worksheet_parts = workbook.add_worksheet("Parts")
 
     # styles
@@ -429,20 +430,21 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     def print_iis_deduction_table():
         if sum_profile['broker_account_type'] != "TinkoffIis":
             logger.debug("account is not of IIS Type")
+            worksheet_deduct.hide()
             return
         logger.info("printing IIS deductions table")
 
-        start_col = 9
-        start_row = 7
+        start_col = 1
+        start_row = 3
         # Headers
-        worksheet_divs.merge_range(start_row-2, start_col,
+        worksheet_deduct.merge_range(start_row-2, start_col,
                                    start_row-2, start_col + 3,
                                    "Расчет налогового вычета ИИС", merge_format['bold_center'])
-        worksheet_divs.set_column(start_col + 1, start_col + 3, 13)
-        # worksheet_divs.write(start_row, start_col, 'Year', cell_format['bold_center'])
-        worksheet_divs.write(start_row, start_col + 1, 'PayIns', cell_format['bold_center'])
-        worksheet_divs.write(start_row, start_col + 2, 'Tax Base', cell_format['bold_center'])
-        worksheet_divs.write(start_row, start_col + 3, 'Deduction', cell_format['bold_center'])
+        worksheet_deduct.set_column(start_col + 1, start_col + 3, 13)
+        # worksheet_deduct.write(start_row, start_col, 'Year', cell_format['bold_center'])
+        worksheet_deduct.write(start_row, start_col + 1, 'PayIns', cell_format['bold_center'])
+        worksheet_deduct.write(start_row, start_col + 2, 'Tax Base', cell_format['bold_center'])
+        worksheet_deduct.write(start_row, start_col + 3, 'Deduction', cell_format['bold_center'])
 
         start_row += 1
 
@@ -455,17 +457,17 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
             base = year_sums[year]['base']
             deduct = year_sums[year]['deduct']
 
-            worksheet_divs.write(start_row, start_col, year, cell_format['bold_center'])
-            worksheet_divs.write(start_row, start_col + 1, payin, cell_format['RUB'])
-            worksheet_divs.write(start_row, start_col + 2, base, cell_format['RUB'])
-            worksheet_divs.write(start_row, start_col + 3, deduct, cell_format['RUB'])
+            worksheet_deduct.write(start_row, start_col, year, cell_format['bold_center'])
+            worksheet_deduct.write(start_row, start_col + 1, payin, cell_format['RUB'])
+            worksheet_deduct.write(start_row, start_col + 2, base, cell_format['RUB'])
+            worksheet_deduct.write(start_row, start_col + 3, deduct, cell_format['RUB'])
             start_row += 1
 
         # for the line on cell top
         deduct_total = year_sums[0]
-        worksheet_divs.write(start_row, start_col + 1, "", cell_format['RUB-bold-total'])
-        worksheet_divs.write(start_row, start_col + 2, "", cell_format['RUB-bold-total'])
-        worksheet_divs.write(start_row, start_col + 3, deduct_total, cell_format['RUB-bold-total'])
+        worksheet_deduct.write(start_row, start_col + 1, "", cell_format['RUB-bold-total'])
+        worksheet_deduct.write(start_row, start_col + 2, "", cell_format['RUB-bold-total'])
+        worksheet_deduct.write(start_row, start_col + 3, deduct_total, cell_format['RUB-bold-total'])
 
     def print_parts():
         logger.info('printing portfolio parts statistics...')
