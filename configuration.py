@@ -76,7 +76,7 @@ class Config:
                 'parse': True,
                 'show empty operations': False,
                 'name': f'account-{id}',
-                'filename': f'tinkoffReport_%%Y.%%b.%%d_{id}',
+                'filename': f'tinkoffReport_%Y.%b.%d_{id}',
             }
             # Check default values and set them as necessary
             for key, value in defaults.items():
