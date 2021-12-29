@@ -3,5 +3,6 @@ my_account.txt
 *.xlsx
 __pycache__/
 .DS_Store
+.vs
 .vscode
 assets_db.db
