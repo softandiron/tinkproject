@@ -12,6 +12,7 @@ from decimal import Decimal
 from configuration import Config
 
 import tinvest
+import tgrpc
 from pycbrf.rates import ExchangeRate
 from pycbrf.toolbox import ExchangeRates
 
@@ -174,3 +175,5 @@ def get_ticker_by_figi(figi, max_age=7*24*60*60):
 
 config = Config()
 database = Database()
+
+tinkoff_access = tgrpc.tgrpc_parser(config.token)
