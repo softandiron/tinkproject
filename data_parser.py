@@ -65,15 +65,14 @@ def calc_investing_period():
 
 def get_accounts():
     logger.info('getting accounts')
-    client = tinvest.SyncClient(config.token)
-    accounts = client.get_accounts()
+    accounts = tinkoff_access.get_accounts_list()
     logging.debug(accounts)
     logger.info('accounts received')
     # проверяем/создаем разделы для счетов в конфигурации
     # если завели новый счет - добавит с дефолтным конфигом,
     # если новые настройки были добавлены в коде - так же добавит
-    config.check_accounts_config(accounts.payload.accounts)
-    return accounts.payload.accounts
+    config.check_accounts_config(accounts)
+    return accounts
 
 
 def get_api_data(broker_account_id):

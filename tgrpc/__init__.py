@@ -1,9 +1,13 @@
 import grpc
 import tgrpc.users_pb2 as users_pb2
 import tgrpc.users_pb2_grpc as users_pb2_grpc
+
+from tgrpc.classes import Account
+
 import json
 from google.protobuf.json_format import MessageToJson
 from google.protobuf.json_format import MessageToDict
+
 
 class tgrpc_parser():
 
@@ -29,5 +33,8 @@ class tgrpc_parser():
     def get_accounts_list(self):
         stub = users_pb2_grpc.UsersServiceStub(self.get_channel())
         accounts_stub = stub.GetAccounts(users_pb2.GetAccountsRequest())
-        accounts_dict = MessageToDict(accounts_stub)
-        return accounts_dict['accounts']
+        accounts_list = []
+        for account in accounts_stub.accounts:
+            accounts_list.append(Account(account.id, account.name, account.opened_date,
+                                         account.closed_date, account.type, account.status))
+        return accounts_list
