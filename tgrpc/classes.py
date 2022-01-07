@@ -2,11 +2,15 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+import enum
+
 from tgrpc.users_pb2 import (ACCOUNT_TYPE_INVEST_BOX,
                              ACCOUNT_TYPE_TINKOFF,
                              ACCOUNT_TYPE_TINKOFF_IIS,
                              ACCOUNT_TYPE_UNSPECIFIED
                              )
+import tgrpc.instruments_pb2 as instruments_pb2
+
 
 ACCOUNT_TYPES = {
     ACCOUNT_TYPE_TINKOFF: "Tinkoff",
@@ -21,6 +25,13 @@ ACCOUNT_TYPES_RUS = {
     ACCOUNT_TYPE_INVEST_BOX: "ТинькоффИнвесткопилка",
     ACCOUNT_TYPE_UNSPECIFIED: "ТинькоффПрочее"
 }
+
+
+class INSTRUMENT_ID_TYPE(enum.Enum):
+    Figi = instruments_pb2.INSTRUMENT_ID_TYPE_FIGI
+    Ticker = instruments_pb2.INSTRUMENT_ID_TYPE_TICKER
+    Isin = instruments_pb2.INSTRUMENT_ID_UNSPECIFIED
+
 
 @dataclass
 class Account:
