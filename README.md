@@ -22,7 +22,7 @@ Hello! This is my first project, please, don't judge me. This project was develo
 День начала инвестирования
 ```
 
-Подробнее о файле настроек скрипта можно почитать в разедел [Файл настроек](docs/configuration.md).
+Подробнее о файле настроек скрипта можно почитать в разделе [Файл настроек](docs/configuration.md).
 
 Программа будет собирать данные за указанный вами период по всем брокерским счетам (включая ИИС). Для работы программы все файлы программы: `main.py`, `excel_builder.py`, `data_parser.py`, `my_account.txt` - должны находиться в одной папке. В этой же папке появятся файлы Excel с результатом (один на каждый счёт).
 
@@ -122,5 +122,5 @@ docker run --rm -it -v $(pwd):/app tinkproject
 
 ## Ограничения, связанные с особенностями API Тинькофф банка
 
-* Выводятся только RUB, USD, EUR. Остальные валюты получить на данный момент невозможно. (https://github.com/TinkoffCreditSystems/invest-openapi/issues/478)
-* Только биржевые бумаги. Внебиржевые активы не выводятся. (https://github.com/TinkoffCreditSystems/invest-openapi/issues/331)
+* Выводятся только RUB, USD, EUR. Остальные валюты получить на данный момент невозможно. (https://github.com/Tinkoff/invest-openapi/issues/478)
+* Только биржевые бумаги. Внебиржевые активы не выводятся. (https://github.com/Tinkoff/invest-openapi/issues/331)
