@@ -1,8 +1,10 @@
 import grpc
 import tgrpc.users_pb2 as users_pb2
 import tgrpc.users_pb2_grpc as users_pb2_grpc
+import tgrpc.operations_pb2 as operations_pb2
+import tgrpc.operations_pb2_grpc as operations_pb2_grpc
 
-from tgrpc.classes import Account
+from tgrpc.classes import Account, PortfolioPosition
 
 import json
 from google.protobuf.json_format import MessageToJson
@@ -38,3 +40,14 @@ class tgrpc_parser():
             accounts_list.append(Account(account.id, account.name, account.opened_date,
                                          account.closed_date, account.type, account.status))
         return accounts_list
+
+    def get_portfolio(self, account_id):
+        stub = operations_pb2_grpc.OperationsServiceStub(self.get_channel())
+        portfolio_stub = stub.GetPortfolio(operations_pb2.PortfolioRequest(account_id=account_id))
+        # print(portfolio_stub.positions)
+        portfolio_out = []
+        for position in portfolio_stub.positions:
+            portfolio_out.append(
+                PortfolioPosition.from_api(position)
+            )
+        return portfolio_out

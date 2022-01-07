@@ -79,7 +79,8 @@ def get_api_data(broker_account_id):
     logger.info("authorization..")
     client = tinvest.SyncClient(config.token)
     logger.info("authorization success")
-    positions = client.get_portfolio(broker_account_id=broker_account_id)
+    positions = tinkoff_access.get_portfolio(broker_account_id)
+    # positions = client.get_portfolio(broker_account_id=broker_account_id)
     operations = client.get_operations(from_=config.start_date,
                                        to=config.now_date,
                                        broker_account_id=broker_account_id)
