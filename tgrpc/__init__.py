@@ -63,19 +63,19 @@ class tgrpc_parser():
         logger.info(instrument_type)
         try:
             if instrument_type.lower() in ["share", "stock"]:  # TODO: stock - убрать после - оставлено для обратной совместимости.
-                logger.info("Get Share")
+                logger.debug(f"Get Share {id}")
                 result = stub.ShareBy(request)
             elif instrument_type.lower() == "bond":
-                logger.info("Get Bond")
+                logger.debug(f"Get Bond {id}")
                 result = stub.BondBy(request)
             elif instrument_type.lower() == "etf":
-                logger.info("Get Etf")
+                logger.debug(f"Get Etf {id}")
                 result = stub.EtfBy(request)
             elif instrument_type.lower() == "currency":
-                logger.info("Get Currency {id}")
-                result = stub.EtfBy(request)
+                logger.debug(f"Get Currency {id}")
+                result = stub.CurrencyBy(request)
             elif instrument_type.lower() == "future":
-                logger.info("Get Future {id}")
+                logger.debug(f"Get Future {id}")
                 result = stub.FutureBy(request)
         except Exception as e:
             logger.info(f"{id} - not found")
