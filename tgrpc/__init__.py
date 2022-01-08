@@ -1,7 +1,10 @@
 import logging
+import time
+
 import grpc
-import tgrpc.users_pb2 as users_pb2
-import tgrpc.users_pb2_grpc as users_pb2_grpc
+
+import tgrpc.instruments_pb2 as instruments_pb2
+import tgrpc.instruments_pb2_grpc as instruments_pb2_grpc
 import tgrpc.operations_pb2 as operations_pb2
 import tgrpc.operations_pb2_grpc as operations_pb2_grpc
 import tgrpc.instruments_pb2 as instruments_pb2
@@ -15,6 +18,8 @@ from google.protobuf.json_format import MessageToJson
 from google.protobuf.json_format import MessageToDict
 
 logger = logging.getLogger("tgrpc")
+
+RATE_LIMIT_TIMEOUT = 5  # seconds
 
 class tgrpc_parser():
 
@@ -60,7 +65,6 @@ class tgrpc_parser():
         """
         stub = instruments_pb2_grpc.InstrumentsServiceStub(self.get_channel())
         request = instruments_pb2.InstrumentRequest(id=id, id_type=id_type.value)
-        logger.info(instrument_type)
         try:
             if instrument_type.lower() in ["share", "stock"]:  # TODO: stock - убрать после - оставлено для обратной совместимости.
                 logger.debug(f"Get Share {id}")
@@ -77,10 +81,16 @@ class tgrpc_parser():
             elif instrument_type.lower() == "future":
                 logger.debug(f"Get Future {id}")
                 result = stub.FutureBy(request)
-        except Exception as e:
-            logger.info(f"{id} - not found")
-            logger.info(e)
-            return None
+        except grpc.RpcError as rpc_error:
+            error_code = rpc_error.code().__str__()
+            if error_code == "StatusCode.RESOURCE_EXHAUSTED":
+                logger.warning(f"Rate limit in get_instrument -> Timeout {RATE_LIMIT_TIMEOUT}s")
+                time.sleep(RATE_LIMIT_TIMEOUT)
+                return self.get_instrument_by(id, id_type, instrument_type, class_code)
+            logger.error("Get instrument error")
+            logger.error(rpc_error)
+            logger.error(error_code)
+        
         logger.debug(result.instrument)
         logger.debug(f"Got instrument {result.instrument.name} - {result.instrument.figi}")
         return result.instrument
