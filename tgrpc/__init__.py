@@ -5,6 +5,8 @@ import grpc
 
 import tgrpc.instruments_pb2 as instruments_pb2
 import tgrpc.instruments_pb2_grpc as instruments_pb2_grpc
+import tgrpc.marketdata_pb2 as marketdata_pb2
+import tgrpc.marketdata_pb2_grpc as marketdata_pb2_grpc
 import tgrpc.operations_pb2 as operations_pb2
 import tgrpc.operations_pb2_grpc as operations_pb2_grpc
 import tgrpc.instruments_pb2 as instruments_pb2
@@ -13,6 +15,7 @@ import tgrpc.instruments_pb2_grpc as instruments_pb2_grpc
 
 from tgrpc.classes import Account, PortfolioPosition, INSTRUMENT_ID_TYPE, INSTRUMENT_TYPE
 
+from decimal import Decimal
 import json
 from google.protobuf.json_format import MessageToJson
 from google.protobuf.json_format import MessageToDict
@@ -94,6 +97,32 @@ class tgrpc_parser():
         logger.debug(result.instrument)
         logger.debug(f"Got instrument {result.instrument.name} - {result.instrument.figi}")
         return result.instrument
+
+    def get_last_price(self, figi):
+        """Возвращает текущую цену на ОДИН Figi
+        TODO: сделать возможность запроса массивом.
+        Args:
+            figi (str): запрашиваемый Figi
+
+        Returns:
+            Decimal: цена на запрашиваемый Figi
+        """
+        stub = marketdata_pb2_grpc.MarketDataServiceStub(self.get_channel())
+        figis = [figi, ]
+        try:
+            price_stub = stub.GetLastPrices(marketdata_pb2.GetLastPricesRequest(figi=figis))
+        except grpc.RpcError as rpc_error:
+            error_code = rpc_error.code().__str__()
+            if error_code == "StatusCode.RESOURCE_EXHAUSTED":
+                logger.warning(f"Rate limit in get_last_price -> Timeout {RATE_LIMIT_TIMEOUT}s")
+                time.sleep(RATE_LIMIT_TIMEOUT)
+                return self.get_last_price(figi)
+            logger.error("Get las price error")
+            logger.error(rpc_error)
+            logger.error(error_code)
+        tmp_price = price_stub.last_prices[0].price
+        price = Decimal(tmp_price.units) + Decimal(tmp_price.nano)/Decimal(1000000000)
+        return price
 
     def get_portfolio(self, account_id):
         stub = operations_pb2_grpc.OperationsServiceStub(self.get_channel())
