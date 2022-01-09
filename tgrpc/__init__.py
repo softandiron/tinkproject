@@ -18,9 +18,9 @@ from tgrpc.classes import (Account,
                            INSTRUMENT_ID_TYPE,
                            Operation,
                            PortfolioPosition,
+                           Price,
                            )
 
-from decimal import Decimal  # TODO: убрать из зависимостей в классы
 from google.protobuf.timestamp_pb2 import Timestamp
 
 logger = logging.getLogger("tgrpc")
@@ -101,7 +101,7 @@ class tgrpc_parser():
         stub = instruments_pb2_grpc.InstrumentsServiceStub(self.get_channel())
         request = instruments_pb2.InstrumentRequest(id=id, id_type=id_type.value)
         try:
-            if instrument_type.lower() in ["share", "stock"]:  # TODO: stock - убрать после - оставлено для обратной совместимости.
+            if instrument_type.lower() == "share":
                 logger.debug(f"Get Share {id}")
                 result = stub.ShareBy(request)
             elif instrument_type.lower() == "bond":
@@ -157,7 +157,7 @@ class tgrpc_parser():
             logger.error(rpc_error)
             logger.error(error_code)
         tmp_price = price_stub.last_prices[0].price
-        price = Decimal(tmp_price.units) + Decimal(tmp_price.nano)/Decimal(1000000000)
+        price = Price.fromQuotation(tmp_price).ammount
         return price
 
     def get_operations(self, account_id,

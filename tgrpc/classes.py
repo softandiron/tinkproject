@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
 
 import enum
@@ -79,15 +79,25 @@ class Account:
 
 
 @dataclass
+class Price():
+    ammount: Decimal
+
+    @staticmethod
+    def fromQuotation(quotation):
+        units = quotation.units
+        nano = quotation.nano
+        ammount = Decimal(units) + Decimal(nano)/Decimal(1000000000)
+        return Price(ammount)
+
+
+@dataclass
 class MoneyAmmount():
     currency: str
     ammount: Decimal
 
     def __init__(self, money_ammount):
         self.currency = money_ammount.currency
-        units = money_ammount.units
-        nano = money_ammount.nano
-        self.ammount = Decimal(units) + Decimal(nano)/Decimal(1000000000)
+        self.ammount = Price.fromQuotation(money_ammount).ammount
 
 
 @dataclass
