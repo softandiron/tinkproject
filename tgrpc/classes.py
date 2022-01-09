@@ -11,6 +11,7 @@ from tgrpc.users_pb2 import (ACCOUNT_TYPE_INVEST_BOX,
                              )
 import tgrpc.instruments_pb2 as instruments_pb2
 import tgrpc.marketdata_pb2 as marketdata_pb2
+import tgrpc.operations_pb2 as operations_pb2
 
 
 ACCOUNT_TYPES = {
@@ -127,7 +128,7 @@ class Operation():
 
     @property
     def status(self):
-        return self.state
+        return OPERATION_STATES[self.state]
 
     @staticmethod
     def from_api(operation):
@@ -161,6 +162,7 @@ OPERATION_TYPES = {
     'Выплата дивидендов': "Dividend",
     'Частичное погашение облигаций': "",
     'Полное погашение облигаций': "",
+    'Удержание налога': "Tax"
 }
 
 
@@ -178,6 +180,12 @@ class OPERATION_TYPE(enum.Enum):
     'Частичное погашение облигаций'
     'Полное погашение облигаций'
     """
+
+OPERATION_STATES = {
+    operations_pb2.OPERATION_STATE_UNSPECIFIED: "NA",
+    operations_pb2.OPERATION_STATE_EXECUTED: "Done",
+    operations_pb2.OPERATION_STATE_CANCELED: "Canceled"
+}
 
 
 @dataclass
