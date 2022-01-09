@@ -117,6 +117,30 @@ class Currency():
 
 
 @dataclass
+class Instrument():
+    figi: str
+    ticker: str
+    lot: int
+    name: str
+    type: str   # InstrumentType
+    currency: str
+    min_price_increment: Decimal
+    isin: str
+
+    @staticmethod
+    def from_api(instrument, instrument_type):
+        return Instrument(
+            instrument.figi,
+            instrument.ticker,
+            instrument.lot,
+            instrument.name,
+            instrument_type,
+            instrument.currency,
+            instrument.min_price_increment,
+            instrument.isin
+        )
+
+@dataclass
 class Operation():
     id: str
     currency: str

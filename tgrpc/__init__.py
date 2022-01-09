@@ -16,6 +16,7 @@ import tgrpc.users_pb2_grpc as users_pb2_grpc
 from tgrpc.classes import (Account,
                            CANDLE_INTERVALS,
                            Currency,
+                           Instrument,
                            INSTRUMENT_ID_TYPE,
                            Operation,
                            PortfolioPosition,
@@ -138,9 +139,12 @@ class tgrpc_parser():
             logger.error(id, id_type, instrument_type, class_code)
             return None
 
+        instrument = result.instrument
+        instrument_out = Instrument.from_api(instrument, instrument_type)
         logger.debug(result.instrument)
+        logger.debug(instrument_out)
         logger.debug(f"Got instrument {result.instrument.name} - {result.instrument.figi}")
-        return result.instrument
+        return instrument_out
 
     def get_last_price(self, figi):
         """Возвращает текущую цену на ОДИН Figi
