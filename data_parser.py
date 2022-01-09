@@ -90,7 +90,7 @@ def get_api_data(broker_account_id):
             market_rate_today[currency] = get_current_market_price(figi=data['figi'], depth=0)
         else:
             market_rate_today[currency] = 1
-    currencies = client.get_portfolio_currencies(broker_account_id=broker_account_id)
+    currencies = tinkoff_access.get_currencies(broker_account_id)
     logger.info("portfolio received")
 
     return positions, operations, market_rate_today, currencies

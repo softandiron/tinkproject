@@ -21,7 +21,7 @@ from excel_builder import build_excel_file, supported_currencies, assets_types
 
 
 def get_portfolio_cash_rub():
-    for cur in currencies.payload.currencies:
+    for cur in currencies:
         if cur.currency == 'RUB':
             return cur.balance
     return 0

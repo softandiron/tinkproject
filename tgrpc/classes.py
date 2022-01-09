@@ -102,6 +102,21 @@ class MoneyAmmount():
 
 
 @dataclass
+class Currency():
+    currency: str
+    ammount: Decimal
+
+    def __init__(self, money):
+        self.currency = money.currency
+        self.ammount = Price.fromQuotation(money).ammount
+
+    @property
+    def balance(self):
+        # for backward compatibility
+        return self.ammount
+
+
+@dataclass
 class Operation():
     id: str
     currency: str

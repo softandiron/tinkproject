@@ -15,6 +15,7 @@ import tgrpc.users_pb2_grpc as users_pb2_grpc
 
 from tgrpc.classes import (Account,
                            CANDLE_INTERVALS,
+                           Currency,
                            INSTRUMENT_ID_TYPE,
                            Operation,
                            PortfolioPosition,
@@ -85,6 +86,13 @@ class tgrpc_parser():
             logger.error(error_code)
         logger.info(candles_stub)
         return None
+
+    def get_currencies(self, account_id):
+        money = self.get_positions(account_id).money
+        currencies = []
+        for currency in money:
+            currencies.append(Currency(currency))
+        return currencies
 
     def get_instrument_by(self, id,
                           id_type=INSTRUMENT_ID_TYPE.Figi,
@@ -197,9 +205,7 @@ class tgrpc_parser():
     def get_positions(self, account_id):
         stub = operations_pb2_grpc.OperationsServiceStub(self.get_channel())
         positions_stub = stub.GetPositions(operations_pb2.PositionsRequest(account_id=account_id))
-        # print(positions_stub)
-        # self.get_portfolio(account_id)
-        # return portfolio_stub.positions
+        return positions_stub
 
     def get_portfolio(self, account_id):
         stub = operations_pb2_grpc.OperationsServiceStub(self.get_channel())
