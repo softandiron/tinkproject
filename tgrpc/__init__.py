@@ -82,7 +82,7 @@ class tgrpc_parser():
             if error_code == "StatusCode.RESOURCE_EXHAUSTED":
                 logger.warning(f"Rate limit in get_candles -> Timeout {RATE_LIMIT_TIMEOUT}s")
                 time.sleep(RATE_LIMIT_TIMEOUT)
-                return self.get_last_price(figi)
+                return self.get_candles(figi, start_date, end_date, interval)
             logger.error("Get candles error")
             logger.error(rpc_error)
             logger.error(error_code)
