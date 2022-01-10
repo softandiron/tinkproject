@@ -11,8 +11,8 @@ from decimal import Decimal
 
 from configuration import Config
 
-import tinvest
 import tgrpc
+from tgrpc.classes import CANDLE_INTERVALS
 from pycbrf.rates import ExchangeRate
 from pycbrf.toolbox import ExchangeRates
 
@@ -124,13 +124,8 @@ def get_figi_history_price(figi, date=datetime.now()):
         return price
     try:
         date_to = date + timedelta(days=1)
-        client = tinvest.SyncClient(config.token)
-        result = client.get_market_candles(figi, date, date_to, tinvest.CandleResolution.day)
-        price = (result.payload.candles[0].h+result.payload.candles[0].l)/2
-    except tinvest.exceptions.TooManyRequestsError:
-        logger.warning("Превышена частота запросов API. Пауза выполнения.")
-        time.sleep(0.5)
-        return get_figi_history_price(figi, date)
+        candles = tinkoff_access.get_candles(figi, date, date_to, CANDLE_INTERVALS.DAY)
+        price = (candles[0].h+candles[0].l)/2
     except IndexError:
         instrument = get_instrument_by_figi(figi)
         logger.error("Что-то не то со свечами! В этот день было IPO? Или размещение средств?")

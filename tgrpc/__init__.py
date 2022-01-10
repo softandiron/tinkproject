@@ -14,6 +14,7 @@ import tgrpc.users_pb2 as users_pb2
 import tgrpc.users_pb2_grpc as users_pb2_grpc
 
 from tgrpc.classes import (Account,
+                           Candle,
                            CANDLE_INTERVALS,
                            Currency,
                            Instrument,
@@ -85,8 +86,11 @@ class tgrpc_parser():
             logger.error("Get candles error")
             logger.error(rpc_error)
             logger.error(error_code)
-        logger.info(candles_stub)
-        return None
+        logger.debug(candles_stub)
+        candles_out = []
+        for candle in candles_stub.candles:
+            candles_out.append(Candle.from_api(candle))
+        return candles_out
 
     def get_currencies(self, account_id):
         money = self.get_positions(account_id).money

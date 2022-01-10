@@ -102,6 +102,47 @@ class MoneyAmmount():
 
 
 @dataclass
+class Candle():
+    open: Decimal
+    close: Decimal
+    high: Decimal
+    low: Decimal
+    volume: int
+    time: datetime
+    is_complete: bool
+
+    @staticmethod
+    def from_api(candle):
+        return Candle(Price.fromQuotation(candle.open).ammount,
+                      Price.fromQuotation(candle.close).ammount,
+                      Price.fromQuotation(candle.high).ammount,
+                      Price.fromQuotation(candle.low).ammount,
+                      candle.volume,
+                      candle.time.ToDatetime(),
+                      candle.is_complete)
+
+    @property
+    def l(self):
+        # for backward compatibility
+        return self.low
+
+    @property
+    def h(self):
+        # for backward compatibility
+        return self.high
+
+    @property
+    def o(self):
+        # for backward compatibility
+        return self.open
+
+    @property
+    def c(self):
+        # for backward compatibility
+        return self.close
+
+
+@dataclass
 class Currency():
     currency: str
     ammount: Decimal
