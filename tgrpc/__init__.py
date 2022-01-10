@@ -52,6 +52,32 @@ class tgrpc_parser():
             self.channel = grpc.secure_channel(self.api_endpoint, composite)
         return self.channel
 
+    def _catch_grpc_error(func):
+        # Decorator function to catch GRPC errors
+        def wrapper(self, *args, **kwargs):
+            while True:
+                try:
+                    return func(self, *args, **kwargs)
+                except grpc.RpcError as rpc_error:
+                    error_code = rpc_error.code().__str__()
+                    if error_code == "StatusCode.RESOURCE_EXHAUSTED":
+                        logger.warning(f"Rate limit in {func.__name__} -> Timeout {RATE_LIMIT_TIMEOUT}s")
+                        time.sleep(RATE_LIMIT_TIMEOUT)
+                    elif error_code == "StatusCode.UNAUTHENTICATED":
+                        logger.error("Authentication failure!")
+                        logger.critical("Token incorrect!")
+                        return None
+                    else:
+                        logger.error("Got GRPC error")
+                        logger.error(rpc_error)
+                        logger.error(error_code)
+                        return
+                except Exception as e:
+                    logger.error(e)
+                    return None
+        return wrapper
+
+    @_catch_grpc_error
     def get_accounts_list(self):
         stub = users_pb2_grpc.UsersServiceStub(self.get_channel())
         accounts_stub = stub.GetAccounts(users_pb2.GetAccountsRequest())
@@ -61,6 +87,7 @@ class tgrpc_parser():
                                          account.closed_date, account.type, account.status))
         return accounts_list
 
+    @_catch_grpc_error
     def get_candles(self, figi, start_date, end_date, interval=CANDLE_INTERVALS.DAY):
         stub = marketdata_pb2_grpc.MarketDataServiceStub(self.get_channel())
 
@@ -75,17 +102,9 @@ class tgrpc_parser():
                   "interval": interval.value
                   }
         request = marketdata_pb2.GetCandlesRequest(**params)
-        try:
-            candles_stub = stub.GetCandles(request)
-        except grpc.RpcError as rpc_error:
-            error_code = rpc_error.code().__str__()
-            if error_code == "StatusCode.RESOURCE_EXHAUSTED":
-                logger.warning(f"Rate limit in get_candles -> Timeout {RATE_LIMIT_TIMEOUT}s")
-                time.sleep(RATE_LIMIT_TIMEOUT)
-                return self.get_candles(figi, start_date, end_date, interval)
-            logger.error("Get candles error")
-            logger.error(rpc_error)
-            logger.error(error_code)
+
+        candles_stub = stub.GetCandles(request)
+
         logger.debug(candles_stub)
         candles_out = []
         for candle in candles_stub.candles:
@@ -176,6 +195,7 @@ class tgrpc_parser():
         price = Price.fromQuotation(tmp_price).ammount
         return price
 
+    @_catch_grpc_error
     def get_operations(self, account_id,
                        start_date=datetime(2020, 11, 1, 0, 0),
                        end_date=datetime.now(tz=timezone.utc), state="", figi=None):
@@ -194,27 +214,20 @@ class tgrpc_parser():
         if figi is not None:
             params['figi'] = figi
         request = operations_pb2.OperationsRequest(**params)
-        try:
-            operations_stub = stub.GetOperations(request)
-        except grpc.RpcError as rpc_error:
-            error_code = rpc_error.code().__str__()
-            if error_code == "StatusCode.RESOURCE_EXHAUSTED":
-                logger.warning(f"Rate limit in get_operations -> Timeout {RATE_LIMIT_TIMEOUT}s")
-                time.sleep(RATE_LIMIT_TIMEOUT)
-                return self.get_operations(account_id, start_date, end_date, figi)
-            logger.error("Get operation error")
-            logger.error(rpc_error)
-            logger.error(error_code)
+        operations_stub = stub.GetOperations(request)
+
         operations_out = []
         for operation in operations_stub.operations:
             operations_out.append(Operation.from_api(operation))
         return operations_out
 
+    @_catch_grpc_error
     def get_positions(self, account_id):
         stub = operations_pb2_grpc.OperationsServiceStub(self.get_channel())
         positions_stub = stub.GetPositions(operations_pb2.PositionsRequest(account_id=account_id))
         return positions_stub
 
+    @_catch_grpc_error
     def get_portfolio(self, account_id):
         stub = operations_pb2_grpc.OperationsServiceStub(self.get_channel())
         portfolio_stub = stub.GetPortfolio(operations_pb2.PortfolioRequest(account_id=account_id))
