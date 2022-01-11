@@ -90,7 +90,18 @@ class tgrpc_parser():
         return accounts_list
 
     @_catch_grpc_error
-    def get_candles(self, figi, start_date, end_date, interval=CANDLE_INTERVALS.DAY):
+    def get_candles_raw(self, figi, start_date, end_date, interval=CANDLE_INTERVALS.DAY):
+        """Возвращает сырые данные о свечах из API
+
+        Args:
+            figi (str): Figi инструмента
+            start_date (DateTime): начало запрашиваемого периода
+            end_date (DateTime): конец запрашиваемого периода
+            interval (CANDLE_INTERVALS, optional): Интервал агрегации данных свечей.
+                                                   Defaults to CANDLE_INTERVALS.DAY.
+        Returns:
+            Массив свечей
+        """
         stub = marketdata_pb2_grpc.MarketDataServiceStub(self.get_channel())
 
         start_ts = Timestamp()
@@ -106,11 +117,36 @@ class tgrpc_parser():
         request = marketdata_pb2.GetCandlesRequest(**params)
 
         candles_stub = stub.GetCandles(request)
+        return candles_stub.candles
 
-        logger.debug(candles_stub)
+    def get_candles(self, figi, start_date, end_date, interval=CANDLE_INTERVALS.DAY):
+        """Возвращает данные о свечах с коррекцией
+        на цену номинала Облигации и фьючерса
+        TODO: реализовать расчет цены фьючерса
+
+        Args:
+            figi (str): Figi инструмента
+            start_date (DateTime): начало запрашиваемого периода
+            end_date (DateTime): конец запрашиваемого периода
+            interval (CANDLE_INTERVALS, optional): Интервал агрегации данных свечей.
+                                                   Defaults to CANDLE_INTERVALS.DAY.
+        Returns:
+            Массив свечей
+        """
+        candles = self.get_candles_raw(figi, start_date, end_date, interval)
+        logger.debug(candles)
+
+        instrument = self.get_instrument_raw(figi)
+        instrument_type = instrument.instrument_type
+        if instrument_type.lower() == "bond":
+            full_instrument = self.get_instrument_raw(figi, instrument_type=instrument_type)
+            nominal = MoneyAmmount(full_instrument.nominal).ammount
         candles_out = []
-        for candle in candles_stub.candles:
-            candles_out.append(Candle.from_api(candle))
+        for candle in candles:
+            if instrument_type.lower() == "bond":
+                candles_out.append(Candle.bond_candle_from_api(candle, nominal))
+            else:
+                candles_out.append(Candle.from_api(candle))
         return candles_out
 
     def get_currencies(self, account_id):

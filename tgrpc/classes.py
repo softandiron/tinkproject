@@ -121,6 +121,33 @@ class Candle():
                       candle.time.ToDatetime(),
                       candle.is_complete)
 
+    @staticmethod
+    def bond_candle_from_api(candle, nominal=Decimal(1000)):
+        """Возвращает свечу для Облигации с коррекцией на номинал
+
+        Args:
+            candle (): свеча из API
+            nominal (Decimal, optional): Номинал облигации. Defaults to Decimal(1000).
+
+        Returns:
+            Candle: корректированная свеча облигации
+        """
+        open = Price.fromQuotation(candle.open).ammount
+        open_out = Decimal(open / 100 * nominal)
+        close = Price.fromQuotation(candle.close).ammount
+        close_out = Decimal(close / 100 * nominal)
+        high = Price.fromQuotation(candle.high).ammount
+        high_out = Decimal(high / 100 * nominal)
+        low = Price.fromQuotation(candle.low).ammount
+        low_out = Decimal(low / 100 * nominal)
+        return Candle(open_out,
+                      close_out,
+                      high_out,
+                      low_out,
+                      candle.volume,
+                      candle.time.ToDatetime(),
+                      candle.is_complete)
+
     @property
     def l(self):
         # for backward compatibility
