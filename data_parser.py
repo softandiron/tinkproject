@@ -11,7 +11,8 @@ from decimal import Decimal
 
 from configuration import Config
 
-import tinvest
+import tgrpc
+from tgrpc.classes import CANDLE_INTERVALS
 from pycbrf.rates import ExchangeRate
 from pycbrf.toolbox import ExchangeRates
 
@@ -64,49 +65,43 @@ def calc_investing_period():
 
 def get_accounts():
     logger.info('getting accounts')
-    client = tinvest.SyncClient(config.token)
-    accounts = client.get_accounts()
+    accounts = tinkoff_access.get_accounts_list()
     logging.debug(accounts)
     logger.info('accounts received')
     # проверяем/создаем разделы для счетов в конфигурации
     # если завели новый счет - добавит с дефолтным конфигом,
     # если новые настройки были добавлены в коде - так же добавит
-    config.check_accounts_config(accounts.payload.accounts)
-    return accounts.payload.accounts
+    config.check_accounts_config(accounts)
+    return accounts
 
 
 def get_api_data(broker_account_id):
-    logger.info("authorization..")
-    client = tinvest.SyncClient(config.token)
-    logger.info("authorization success")
-    positions = client.get_portfolio(broker_account_id=broker_account_id)
-    operations = client.get_operations(from_=config.start_date,
-                                       to=config.now_date,
-                                       broker_account_id=broker_account_id)
+    positions = tinkoff_access.get_portfolio(broker_account_id)
+    operations = tinkoff_access.get_operations(broker_account_id,
+                                               config.start_date, config.now_date)
     market_rate_today = {}
     for currency, data in currencies_data.items():
         if 'figi' in data.keys():
-            market_rate_today[currency] = get_current_market_price(figi=data['figi'], depth=0)
+            market_rate_today[currency] = get_current_market_price(figi=data['figi'])
         else:
             market_rate_today[currency] = 1
-    currencies = client.get_portfolio_currencies(broker_account_id=broker_account_id)
+    currencies = tinkoff_access.get_currencies(broker_account_id)
     logger.info("portfolio received")
 
     return positions, operations, market_rate_today, currencies
 
 
-def get_current_market_price(figi, depth=0, max_age=10*60):
+def get_current_market_price(figi, max_age=10*60):
     price = database.get_market_price_by_figi(figi, max_age)
     if price:
         return price
+    instrument = get_instrument_by_figi(figi)
     try:
-        client = tinvest.SyncClient(config.token)
-        book = client.get_market_orderbook(figi=figi, depth=depth)
-        price = book.payload.last_price
-    except tinvest.exceptions.TooManyRequestsError:
-        logger.warn("Превышена частота запросов API. Пауза выполнения.")
-        time.sleep(0.5)
-        return get_current_market_price(figi, depth, max_age)
+        price = tinkoff_access.get_last_price(figi, instrument.instrument_type)
+    except Exception as e:
+        logger.error("Get current market price error.")
+        logger.error(e)
+        return None
     database.put_market_price(figi, price)
     return price
 
@@ -123,18 +118,19 @@ def get_figi_history_price(figi, date=datetime.now()):
         return price
     try:
         date_to = date + timedelta(days=1)
-        client = tinvest.SyncClient(config.token)
-        result = client.get_market_candles(figi, date, date_to, tinvest.CandleResolution.day)
-        price = (result.payload.candles[0].h+result.payload.candles[0].l)/2
-    except tinvest.exceptions.TooManyRequestsError:
-        logger.warning("Превышена частота запросов API. Пауза выполнения.")
-        time.sleep(0.5)
-        return get_figi_history_price(figi, date)
+        candles = tinkoff_access.get_candles(figi, date, date_to, CANDLE_INTERVALS.DAY)
+        price = (candles[0].h+candles[0].l)/2
     except IndexError:
         instrument = get_instrument_by_figi(figi)
         logger.error("Что-то не то со свечами! В этот день было IPO? Или размещение средств?")
         logger.error(f"{date} - {figi} - {instrument.ticker}")
-        logger.error(result)
+        logger.error(candles)
+        return None
+    except Exception as e:
+        instrument = get_instrument_by_figi(figi)
+        logger.error("Что-то не то со свечами! В этот день было IPO? Или размещение средств?")
+        logger.error(f"{date} - {figi} - {instrument.ticker}")
+        logger.error(candles)
         return None
     database.put_exchange_rate(date, figi, price)
     return price
@@ -147,30 +143,32 @@ def get_position_type(figi, max_age=7*24*60*60):
     return type
 
 
-def get_instrument_by_figi(figi, max_age=7*24*60*60):
+def get_instrument_by_figi(figi, instrument_type=None, max_age=7*24*60*60):
     # max_age - timeout for getting old, default - 1 week
     instrument = database.get_instrument_by_figi(figi, max_age)
     if instrument:
-        logger.debug(f"Instrument for {figi} found")
+        logger.debug(f"Instrument for {figi} found in DB")
         return instrument
     logger.debug(f"Need to query instrument for {figi} from API")
     try:
-        client = tinvest.SyncClient(config.token)
-        position_data = client.get_market_search_by_figi(figi)
-    except tinvest.exceptions.TooManyRequestsError:
-        logger.warn("Превышена частота запросов API. Пауза выполнения.")
-        time.sleep(0.5)
-        return get_instrument_by_figi(figi, max_age)
-    database.put_instrument(position_data.payload)
-    return position_data.payload
+        position_data = tinkoff_access.get_instrument(figi, instrument_type=instrument_type)
+    except Exception as e:
+        logger.error("Get instrument by figi error")
+        logger.error(e)
+        return None
+    database.put_instrument(position_data, instrument_type)
+    # print(position_data)
+    return position_data
 
 
-def get_ticker_by_figi(figi, max_age=7*24*60*60):
+def get_ticker_by_figi(figi, instrument_type=None, max_age=7*24*60*60):
     # max_age - timeout for getting old, default - 1 week
-    instrument = get_instrument_by_figi(figi, max_age)
+    instrument = get_instrument_by_figi(figi, instrument_type, max_age)
     ticker = instrument.ticker
     return ticker
 
 
 config = Config()
 database = Database()
+
+tinkoff_access = tgrpc.tgrpc_parser(config.token)

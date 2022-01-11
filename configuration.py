@@ -60,14 +60,19 @@ class Config:
             # Если yaml не установлен - ничего не делаем
             return
         with open(self.config_file_name, 'w') as config_file:
-            yaml.dump(self.__config, config_file, encoding="utf-8", sort_keys=True)
+            yaml.dump(self.__config,
+                      config_file,
+                      encoding="utf-8",
+                      allow_unicode=True,
+                      sort_keys=True)
 
     def check_accounts_config(self, accounts):
         # проверяет наличие конфигурации для аккаунтов, если надо - дописывает ее в файл
         for account in accounts:
-            id = account.broker_account_id
+            id = account.id
+            name = account.name
             if id not in self.__config:
-                logger.info(f"New account found - {id} - adding config")
+                logger.info(f"New account found - {id} - {name} - adding config")
                 self.__config[id] = {
                     'id': id,
                 }
@@ -75,8 +80,9 @@ class Config:
             defaults = {
                 'parse': True,
                 'show empty operations': False,
-                'name': f'account-{id}',
-                'filename': f'tinkoffReport_%Y.%b.%d_{id}',
+                'type': account.type,
+                'name': f'account-{name}',
+                'filename': f'tinkoffReport_%Y.%b.%d_{id}_{name}',
             }
             # Check default values and set them as necessary
             for key, value in defaults.items():

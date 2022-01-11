@@ -3,7 +3,8 @@ from datetime import datetime
 
 import logging
 from decimal import Decimal
-from tinvest.schemas import SearchMarketInstrument
+
+from tgrpc.classes import Instrument
 
 db_logger = logging.getLogger("DB")
 db_logger.setLevel(logging.INFO)
@@ -100,7 +101,7 @@ class Database:
             return False
         return True
 
-    def put_instrument(self, instrument):
+    def put_instrument(self, instrument, instrument_type):
         date_str = datetime.now()
         ticker = instrument.ticker
         figi = instrument.figi
@@ -112,7 +113,7 @@ class Database:
         try:
             self.cursor.execute(sql, (date_str,
                                       figi, ticker, instrument.name, instrument.currency,
-                                      instrument.type, str(instrument.lot),
+                                      instrument_type, str(instrument.lot),
                                       str(instrument.min_price_increment), instrument.isin))
             self.sqlite_connection.commit()
         except sqlite3.Error as e:
@@ -134,14 +135,14 @@ class Database:
         if not row or row is None:
             return None
         db_logger.debug(f"Returning good instrument for {figi}")
-        instrument = SearchMarketInstrument(figi=row['figi'],
-                                            ticker=row['ticker'],
-                                            lot=row['lot'],
-                                            name=row['name'],
-                                            type=row['type'],
-                                            currency=row['currency'],
-                                            min_price_increment=row['min_price_increment'],
-                                            isin=row['isin'])
+        instrument = Instrument(figi=row['figi'],
+                                ticker=row['ticker'],
+                                lot=row['lot'],
+                                name=row['name'],
+                                type=row['type'],
+                                currency=row['currency'],
+                                min_price_increment=row['min_price_increment'],
+                                isin=row['isin'])
         return instrument
 
     def put_market_price(self, figi, price=Decimal(1.0)):
