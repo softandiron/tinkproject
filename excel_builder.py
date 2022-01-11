@@ -8,10 +8,10 @@ import currencies
 
 from configuration import Config
 
-# For backward compatability - needs to be deprecated later
+# For backward compatibility - needs to be deprecated later
 # after merging parts tables
 supported_currencies = currencies.supported_currencies
-assets_types = ['Stock', 'Bond', 'Etf', 'Other', 'Currency']
+assets_types = ['share', 'bond', 'etf', 'other', 'currency']
 
 logger = logging.getLogger("ExBuild")
 logger.setLevel(logging.INFO)
@@ -154,10 +154,10 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                     row = print_position_data(row, col)
 
                 if pos_type == "Other":
-                    if this_pos.position_type != "Stock"\
-                            and this_pos.position_type != "Bond"\
-                            and this_pos.position_type != "Etf"\
-                            and this_pos.position_type != "Currency":
+                    if this_pos.position_type != "share"\
+                            and this_pos.position_type != "bond"\
+                            and this_pos.position_type != "etf"\
+                            and this_pos.position_type != "currency":
                         row = print_position_data(row, col)
 
             return row
@@ -200,11 +200,11 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
         build_header()
         build_cb_rate()
         build_market_rates()
-        s_row = print_content("Stock")
-        s_row = print_content("Bond")
-        s_row = print_content("Etf")
+        s_row = print_content("share")
+        s_row = print_content("bond")
+        s_row = print_content("etf")
         s_row = print_content("Other")
-        last_row = print_content("Currency")
+        last_row = print_content("currency")
         worksheet_port.autofilter(4, s_col, last_row, s_col+16)
         print_totals(last_row, s_col)
 
@@ -239,7 +239,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                     worksheet_ops.write(start_row, start_col, operation.op_date.strftime('%Y %b %d  %H:%M'), cell_format['left'])
                     # operation's value (payment in the operation's currency)
                     if operation.op_currency in supported_currencies:
-                        worksheet_ops.write(start_row, start_col + 1, operation.op_payment, cell_format[operation.op_currency])
+                        worksheet_ops.write(start_row, start_col + 1, operation.op_payment.ammount, cell_format[operation.op_currency])
                     else:
                         worksheet_ops.write(start_row, start_col + 1, 'unknown currency', cell_format['right'])
                     start_row += 1
@@ -276,7 +276,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
 
                     # operation's value (payment in the operation's currency)
                     if operation.op_currency in supported_currencies:
-                        worksheet_ops.write(start_row, start_col + 2, operation.op_payment,
+                        worksheet_ops.write(start_row, start_col + 2, operation.op_payment.ammount,
                                             cell_format[operation.op_currency])
                     else:
                         worksheet_ops.write(start_row, start_col + 2, 'unknown currency', cell_format['right'])
@@ -405,7 +405,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                         worksheet_divs.write(start_row, start_col + 1, operation.op_date.strftime('%Y %b %d'), cell_format['center'])
                         # print value
                         if operation.op_currency in supported_currencies:
-                            worksheet_divs.write(start_row, start_col + 2, operation.op_payment, cell_format[operation.op_currency])
+                            worksheet_divs.write(start_row, start_col + 2, operation.op_payment.ammount, cell_format[operation.op_currency])
                         else:
                             worksheet_divs.write(start_row, start_col + 2, 'unknown currency', cell_format['right'])
                         # print tax
@@ -414,7 +414,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                             if (tax_op.op_type == 'TaxCoupon' or tax_op.op_type == 'TaxDividend'):
                                 if tax_op.op_ticker == operation.op_ticker and tax_op.op_date.strftime('%Y %b %d') == \
                                         operation.op_date.strftime('%Y %b %d'):
-                                    tax_payment = tax_op.op_payment
+                                    tax_payment = tax_op.op_payment.ammount
                                     worksheet_divs.write(start_row, start_col + 3, tax_payment,
                                                          cell_format[tax_op.op_currency])
                         if tax_payment == 0:
