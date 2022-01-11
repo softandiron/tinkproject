@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from tinvest import schemas as tschemas
+from tgrpc import classes as tgrpc_classes
 
 
 @dataclass
@@ -27,18 +27,18 @@ class PortfolioPosition:
     lots: int = 0
     today_market_rate: Decimal = 1  # Курс валюты по бирже
     today_cb_rate: Decimal = 1  # Курс валюты по центробанку
-    instrument: tschemas.MarketInstrument = None
+    instrument: tgrpc_classes.Instrument = None
 
     @staticmethod
-    def from_api_data(pp: tschemas.PortfolioPosition,
-                      instrument: tschemas.MarketInstrument,
+    def from_api_data(pp: tgrpc_classes.PortfolioPosition,
+                      instrument: tgrpc_classes.Instrument,
                       current_market_price: Decimal,
                       today_market_rate: Decimal, today_cb_rate: Decimal):
         """Создает объект позиции в портфолио из данных, получаемых по API
 
         Args:
-            pp (tschemas.PortfolioPosition): позиция из API
-            instrument (tschemas.MarketInstrument): инструмент Позиции
+            pp (tgrpc_classes.PortfolioPosition): позиция из API
+            instrument (tgrpc_classes.Instrument): инструмент Позиции
             current_market_price (Decimal): текущая цена на рынке из API
             today_market_rate (Decimal): курс обмена валюты позиции по рынку
             today_cb_rate (Decimal): курс обмена валюты позиции по ЦБ
@@ -47,20 +47,20 @@ class PortfolioPosition:
             PortfolioPosition: объект позиции портфолио со всеми данными
         """
 
-        pos = PortfolioPosition(pp.figi, pp.name, pp.ticker, pp.balance, instrument.type,
-                                pp.average_position_price.currency, pp.average_position_price.value,
-                                exp_yield=pp.expected_yield.value)
+        pos = PortfolioPosition(pp.figi, instrument.name, instrument.ticker, Decimal(pp.balance), pp.instrument_type,
+                                pp.average_position_price.currency, pp.average_position_price.ammount,
+                                exp_yield=pp.expected_yield)
 
         pos.current_market_price = current_market_price
         pos.today_market_rate = today_market_rate
         pos.today_cb_rate = today_cb_rate
 
         pos.average_position_price = pp.average_position_price
-        pos.average_position_price_no_nkd = pp.average_position_price_no_nkd
-        pos.blocked = pp.blocked
+        # pos.average_position_price_no_nkd = pp.average_position_price_no_nkd
+        # pos.blocked = pp.blocked
         pos.expected_yield = pp.expected_yield
-        pos.isin = pp.isin
-        pos.lots = pp.lots
+        pos.isin = instrument.isin
+        # pos.lots = pp.lots
 
         pos.instrument = instrument
 
@@ -91,7 +91,9 @@ class PortfolioPosition:
             market_cost = round((self.exp_yield + (self.ave_price * self.balance)), 2)
             return market_cost
         # else:
-        return self.current_market_price * self.balance
+        if self.current_market_price is None:
+            return 0
+        return self.current_market_price * Decimal(self.balance)
 
     @property
     def market_cost_rub_cb(self):
@@ -104,13 +106,15 @@ class PortfolioPosition:
 
     @property
     def percent_change(self):
+        if self.market_price is None:
+            return 0
         if self.ave_price > 0:
             return ((self.market_price / self.ave_price) * 100) - 100
         return 0
 
     @property
     def sum_buy(self):
-        return self.ave_price * self.balance
+        return Decimal(self.ave_price) * Decimal(self.balance)
 
     @property
     def sum_buy_rub(self):
