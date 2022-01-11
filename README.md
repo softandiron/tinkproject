@@ -1,14 +1,16 @@
 # tinkproject
 
-The program for portfolio analysis via Tinkoff API
+## ПЕРЕХОД на Tinkoff API 2
+Ура! Оно свершилось, переход начался. Новый API! (https://tinkoff.github.io/investAPI/)
+Надо много тестить - потому что проблемы точно есть, как косметические так и не очень.
 
-Hello! This is my first project, please, don't judge me. This project was developed for Tinkoff Investments' clients, like me, to gather accurate and full information about portfolio into Excel table.
+не забудьте после скачивания данной ветки прогнать:
+```
+pip3 install -r requirements.txt 
+```
+Зависимости поменялись, поскольку новый API использует [GRPC](https://grpc.io)
 
-Здравствуйте! Это мой первый проект, пожалуйста не судите строго. Этот проект был разработан для клиентов Тинькофф Инвестиций, чтобы собирать подробную информацию об инвестиционном портфеле в таблицу Excel.
-
-Статья на Хабре: [Что недоговаривают Тинькофф Инвестиции. Вытаскиваем все данные по портфелю через API в большую таблицу Excel](https://habr.com/en/post/555884/)
-
-Для автоматического сбора информации используется Tinkoff API. Для использования вам нужно получить *токен для OpenAPI* в личном кабинете Тинькофф.
+В целом все настройки остались теже, надо просто скачать и запустить.
 
 ## Параметры доступа
 
