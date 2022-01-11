@@ -181,6 +181,10 @@ class Instrument():
             instrument.isin
         )
 
+    @property
+    def instrument_type(self):
+        return self.type
+
 @dataclass
 class Operation():
     id: str
