@@ -3,6 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 
 import enum
+import logging
 
 from tgrpc.users_pb2 import (ACCOUNT_TYPE_INVEST_BOX,
                              ACCOUNT_TYPE_TINKOFF,
@@ -13,6 +14,7 @@ import tgrpc.instruments_pb2 as instruments_pb2
 import tgrpc.marketdata_pb2 as marketdata_pb2
 import tgrpc.operations_pb2 as operations_pb2
 
+logger = logging.getLogger("tgrpc-classes")
 
 ACCOUNT_TYPES = {
     ACCOUNT_TYPE_TINKOFF: "Tinkoff",
@@ -230,7 +232,11 @@ class Operation():
     @property
     def operation_type(self):
         # For backward compatibility
-        return OPERATION_TYPES[self.type]
+        try:
+            return OPERATION_TYPES[self.type]
+        except:
+            logger.warning(f"Unknown operation type: {self.type}")
+            return "Unknown"
 
     @property
     def quantity_executed(self):
