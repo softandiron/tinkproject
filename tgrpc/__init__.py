@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+from decimal import Decimal
 import time
 
 import grpc
@@ -19,6 +20,7 @@ from tgrpc.classes import (Account,
                            Currency,
                            Instrument,
                            INSTRUMENT_ID_TYPE,
+                           MoneyAmmount,
                            Operation,
                            PortfolioPosition,
                            Price,
@@ -180,8 +182,12 @@ class tgrpc_parser():
         logger.debug(f"Got instrument {instrument.name} - {instrument.figi}")
         return instrument_out
 
-    def get_last_price(self, figi):
-        """Возвращает текущую цену на ОДИН Figi
+    @_catch_grpc_error
+    def get_last_price_raw(self, figi):
+        """Возвращает текущую 'сырую' цену на ОДИН Figi
+        Не корректирует на номинал облигации и фьючерса,
+        для облигации возвращает процент от номинала,
+        для фьючерсов - индекс от номинала
         TODO: сделать возможность запроса массивом.
         Args:
             figi (str): запрашиваемый Figi
@@ -191,20 +197,41 @@ class tgrpc_parser():
         """
         stub = marketdata_pb2_grpc.MarketDataServiceStub(self.get_channel())
         figis = [figi, ]
-        try:
-            price_stub = stub.GetLastPrices(marketdata_pb2.GetLastPricesRequest(figi=figis))
-        except grpc.RpcError as rpc_error:
-            error_code = rpc_error.code().__str__()
-            if error_code == "StatusCode.RESOURCE_EXHAUSTED":
-                logger.warning(f"Rate limit in get_last_price -> Timeout {RATE_LIMIT_TIMEOUT}s")
-                time.sleep(RATE_LIMIT_TIMEOUT)
-                return self.get_last_price(figi)
-            logger.error("Get last price error")
-            logger.error(rpc_error)
-            logger.error(error_code)
+
+        price_stub = stub.GetLastPrices(marketdata_pb2.GetLastPricesRequest(figi=figis))
+
         tmp_price = price_stub.last_prices[0].price
         price = Price.fromQuotation(tmp_price).ammount
         return price
+
+    def get_last_price(self, figi, instrument_type=None):
+        """Возвращает истинную текущую цену на ОДИН Figi
+        с коррекцией на номинал Облигаций и Фьючерсов
+        TODO: сделать возможность запроса массивом.
+        Args:
+            figi (str): запрашиваемый Figi
+
+        Returns:
+            Decimal: цена на запрашиваемый Figi
+        """
+        raw_price = self.get_last_price_raw(figi)
+        if instrument_type is None:
+            instrument = self.get_instrument_raw(figi, id_type=INSTRUMENT_ID_TYPE.Figi)
+            instrument_type = instrument.instrument_type
+        if instrument_type.lower() == "bond":
+            # сырая цена облигации - это процент от номинала
+            # расчет ведется через высчитывание этой доли
+            logger.info("Calculate True Bond price")
+            full_instrument = self.get_instrument_raw(figi,
+                                                      id_type=INSTRUMENT_ID_TYPE.Figi,
+                                                      instrument_type=instrument_type)
+            nominal = MoneyAmmount(full_instrument.nominal)
+            price = Decimal(raw_price/100*nominal.ammount)
+            return price
+        elif instrument_type.lower() == "future":
+            # TODO: реализовать расчет цены фьючерсов
+            pass
+        return raw_price
 
     @_catch_grpc_error
     def get_operations(self, account_id,
