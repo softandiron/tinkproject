@@ -118,55 +118,66 @@ class tgrpc_parser():
             currencies.append(Currency(currency))
         return currencies
 
-    def get_instrument_by(self, id,
-                          id_type=INSTRUMENT_ID_TYPE.Figi,
-                          instrument_type="Share",
-                          class_code=None):
+    @_catch_grpc_error
+    def get_instrument_raw(self, id,
+                           id_type=INSTRUMENT_ID_TYPE.Figi,
+                           instrument_type=None,
+                           class_code=None):
+        """Запрос инструмента по Тикеру/IsIn/Figi
+        Возвращает "сырые" данные из API
+
+        Args:
+            id (str): строка запроса
+            id_type (INSTRUMENT_ID_TYPE): тип строки поиска - Тикеру/IsIn/Figi
+            instrument_type (str): тип инструмента, или None - запросить базовую информацию
+            class_code ([type]): - 	Идентификатор class_code. Обязателен при id_type = ticker.
+
+        Запрос с типом инструмента выдает расширенную информацию. В том числе даты размещения,
+        сектора, графики дивидендных и купонных выплат и т.д..
+        """
+        stub = instruments_pb2_grpc.InstrumentsServiceStub(self.get_channel())
+        request = instruments_pb2.InstrumentRequest(id=id, id_type=id_type.value)
+
+        if instrument_type is None:
+            logger.debug(f"Get base data on instrument {id}")
+            result = stub.GetInstrumentBy(request)
+        elif instrument_type.lower() == "share":
+            logger.debug(f"Get Share {id}")
+            result = stub.ShareBy(request)
+        elif instrument_type.lower() == "bond":
+            logger.debug(f"Get Bond {id}")
+            result = stub.BondBy(request)
+        elif instrument_type.lower() == "etf":
+            logger.debug(f"Get Etf {id}")
+            result = stub.EtfBy(request)
+        elif instrument_type.lower() == "currency":
+            logger.debug(f"Get Currency {id}")
+            result = stub.CurrencyBy(request)
+        elif instrument_type.lower() == "future":
+            logger.debug(f"Get Future {id}")
+            result = stub.FutureBy(request)
+
+        return result.instrument
+
+    def get_instrument(self, id,
+                       id_type=INSTRUMENT_ID_TYPE.Figi,
+                       instrument_type=None,
+                       class_code=None):
         """Запрос инструмента по Тикеру/IsIn/Figi
 
         Args:
             id (str): строка запроса
-            id_type (str): тип строки поиска - Тикеру/IsIn/Figi 
-            instrument_type (): тип инструмента
+            id_type (str): тип строки поиска - Тикеру/IsIn/Figi
+            instrument_type (): тип инструмента, или None - для запроса базовой информации
             class_code ([type]): - 	Идентификатор class_code. Обязателен при id_type = ticker.
         """
-        stub = instruments_pb2_grpc.InstrumentsServiceStub(self.get_channel())
-        request = instruments_pb2.InstrumentRequest(id=id, id_type=id_type.value)
-        try:
-            if instrument_type.lower() == "share":
-                logger.debug(f"Get Share {id}")
-                result = stub.ShareBy(request)
-            elif instrument_type.lower() == "bond":
-                logger.debug(f"Get Bond {id}")
-                result = stub.BondBy(request)
-            elif instrument_type.lower() == "etf":
-                logger.debug(f"Get Etf {id}")
-                result = stub.EtfBy(request)
-            elif instrument_type.lower() == "currency":
-                logger.debug(f"Get Currency {id}")
-                result = stub.CurrencyBy(request)
-            elif instrument_type.lower() == "future":
-                logger.debug(f"Get Future {id}")
-                result = stub.FutureBy(request)
-        except grpc.RpcError as rpc_error:
-            error_code = rpc_error.code().__str__()
-            if error_code == "StatusCode.RESOURCE_EXHAUSTED":
-                logger.warning(f"Rate limit in get_instrument -> Timeout {RATE_LIMIT_TIMEOUT}s")
-                time.sleep(RATE_LIMIT_TIMEOUT)
-                return self.get_instrument_by(id, id_type, instrument_type, class_code)
-            logger.error("Get instrument error")
-            logger.error(rpc_error)
-            logger.error(error_code)
-        except Exception as e:
-            logger.error(e)
-            logger.error(id, id_type, instrument_type, class_code)
-            return None
-
-        instrument = result.instrument
+        instrument = self.get_instrument_raw(id, id_type, instrument_type, class_code)
+        if instrument_type is None:
+            instrument_type = instrument.instrument_type
         instrument_out = Instrument.from_api(instrument, instrument_type)
-        logger.debug(result.instrument)
+        logger.debug(instrument)
         logger.debug(instrument_out)
-        logger.debug(f"Got instrument {result.instrument.name} - {result.instrument.figi}")
+        logger.debug(f"Got instrument {instrument.name} - {instrument.figi}")
         return instrument_out
 
     def get_last_price(self, figi):
