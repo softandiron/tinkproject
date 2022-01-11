@@ -31,14 +31,14 @@ def get_portfolio_cash_rub():
 def calculate_ave_buy_price_rub(this_pos):
     item_list = []
     # for this position's figi - add units into the list from operations
-    for ops in reversed(operations.payload.operations):
+    for ops in reversed(operations):
         date = datetime.date(ops.date)
         rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
 
-        if ops.figi == this_pos.figi and ops.payment != 0:
+        if ops.figi == this_pos.figi and ops.payment.ammount != 0:
             if ops.operation_type == 'Buy' or ops.operation_type == 'BuyCard':
                 # Определим - был ли в истории сплит или обратный сплит
-                op_price = Decimal(ops.payment / ops.quantity_executed)
+                op_price = Decimal(ops.payment.ammount / ops.quantity_executed)
                 quantity = ops.quantity_executed
                 price = data_parser.get_figi_history_price(ops.figi, date)
 
@@ -48,7 +48,7 @@ def calculate_ave_buy_price_rub(this_pos):
                 if ops.currency != this_pos.average_position_price.currency:
                     # Если валюта расчетов за актив менялась - то не исользвать расчет сплита
                     # Например AMHY и AMIG в августе 2021 года перешли с USD на RUB
-                    logger.debug(f"{this_pos.ticker} - произошла смена валют актива! "
+                    logger.debug(f"{this_pos.figi} - произошла смена валют актива! "
                                  f"{ops.currency} -> {this_pos.average_position_price.currency}")
                 elif price:
                     # Определяем соотношение цен. Больше 1 - сплит акции, меньше 1 - обратный сплит
@@ -57,20 +57,20 @@ def calculate_ave_buy_price_rub(this_pos):
                     logger.debug(f"Отношение цен - {ratio}")
                     if round(ratio) > 1:
                         ratio = round(ratio)
-                        logger.warning(f"Вероятно, был сплит {this_pos.ticker} - "
+                        logger.warning(f"Вероятно, был сплит {this_pos.figi} - "
                                        f"отношение цен 1:{ratio}")
                         quantity = int(quantity*ratio)
                     elif round(ratio, 2) < Decimal(0.95):
                         # 0.95 - для погрешности в ценах свечей за день
                         ratio_out = 1/ratio
-                        logger.warning(f"Вероятно, был обратный сплит {this_pos.ticker} - "
+                        logger.warning(f"Вероятно, был обратный сплит {this_pos.figi} - "
                                        f"отношение цен {ratio_out:.0f}:1")
                         quantity = int(quantity/ratio)
 
                 # Когда опередлились с количеством активов по заявленной цене - считаем
                 if ops.currency in supported_currencies:
                     # price for 1 item
-                    item = (ops.payment / quantity) * rate_for_date[ops.currency]
+                    item = (ops.payment.ammount / quantity) * rate_for_date[ops.currency]
                     # add bought items to the list:
                     item_list += [item] * quantity
                 else:
@@ -107,13 +107,13 @@ def calculate_ave_buy_price_rub(this_pos):
 def creating_positions_objects():
     logger.info('creating position objects..')
 
-    number_positions = len(positions.payload.positions)
+    number_positions = len(positions)
     logger.info(f'{number_positions} positions in portfolio')
-    number_operations = len(operations.payload.operations)
+    number_operations = len(operations)
     logger.info(f'{number_operations} operations in period')
 
     my_positions = list()
-    for this_pos in positions.payload.positions:
+    for this_pos in positions:
         this_pos_instrument = data_parser.get_instrument_by_figi(this_pos.figi)
         curr_market_price = data_parser.get_current_market_price(this_pos.figi)
 
@@ -125,12 +125,12 @@ def creating_positions_objects():
                                                        curr_market_price,
                                                        market_rate, cb_rate)
 
-        if this_pos.average_position_price.value > 0:
+        if this_pos.average_position_price.ammount > 0:
             ave_buy_price_rub = calculate_ave_buy_price_rub(this_pos)
-            logger.info(this_pos.name)
+            logger.info(this_pos_instrument.name)
         else:  # in the case, if this position has ZERO purchase price
             ave_buy_price_rub = Decimal(0)
-            logger.warning(this_pos.name + ' - not enough data!')
+            logger.warning(this_pos_instrument.name + ' - not enough data!')
 
         tmp_position.ave_buy_price_rub = ave_buy_price_rub
 
@@ -241,9 +241,9 @@ def calculate_parts():
             continue
         data = parts[currency]
         for type in assets_types:
-            if type in parts.keys():
+            if type.lower() in parts.keys():
                 parts[type]['totalPart'] = parts[type]['valueRub']/parts['totalValue'] if parts['totalValue'] > 0 else 0
-            if type not in data.keys():
+            if type.lower() not in data.keys():
                 continue
             type_data = data[type]
             type_data['currencyPart'] = type_data['value']/data['value']*100 if data['value'] > 0 else 0
@@ -279,9 +279,9 @@ def calculate_iis_deduction():
             logger.warning(operation)
             continue
         if operation_year not in year_sums.keys():
-            year_sums[operation_year] = {'pay_in': operation.op_payment}
+            year_sums[operation_year] = {'pay_in': operation.op_payment.ammount}
         else:
-            year_sums[operation_year]["pay_in"] += operation.op_payment
+            year_sums[operation_year]["pay_in"] += operation.op_payment.ammount
 
     deduct_total = 0
     base_limit = Decimal(400000)  # Ограничение налоговой базы по закону
@@ -310,18 +310,18 @@ def calculate_iis_deduction():
 def create_operations_objects():
     logger.info('creating operations objects..')
     my_operations = list()
-    for this_op in operations.payload.operations:
+    for this_op in operations:
         date = datetime.date(this_op.date)
         rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
         # ticker
-        if this_op.figi is not None:
-            ticker = data_parser.get_ticker_by_figi(this_op.figi)
+        if this_op.figi is not None and this_op.figi != "":
+            ticker = data_parser.get_ticker_by_figi(this_op.figi, this_op.instrument_type)
         else:
             ticker = "None"
 
         # payment_RUB
         if this_op.currency in supported_currencies:
-            payment_rub = this_op.payment * rate_for_date[this_op.currency]
+            payment_rub = this_op.payment.ammount * rate_for_date[this_op.currency]
         else:
             logger.warning('unknown currency in operation: ' + this_op)
             payment_rub = 0
@@ -332,7 +332,7 @@ def create_operations_objects():
                                                 this_op.payment,
                                                 ticker, payment_rub,
                                                 this_op.figi,
-                                                this_op.status.value))
+                                                this_op.status))
 
     logger.info('..operations are ready')
     return my_operations
@@ -343,9 +343,9 @@ def calculate_operations_sums_rub(current_op_type):
     for op in my_operations:
         if op.op_type == current_op_type and op.op_payment != 0:
             if op.op_currency in supported_currencies:
-                date = datetime.date(op.op_date)  # op_date has a datetime.datetime type. I don't know, what is a problem.
+                date = datetime.date(op.op_date)
                 rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
-                op_list.append(op.op_payment * rate_for_date[op.op_currency])
+                op_list.append(op.op_payment.ammount * rate_for_date[op.op_currency])
             else:
                 logger.warning(f'Unsupported currency: {op.op_currency}')
     return sum(op_list)
@@ -401,7 +401,7 @@ def calculate_xirr(operations, portfolio_value):
             if op.op_currency in supported_currencies:
                 date = datetime.date(op.op_date)
                 rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
-                dates_values[op.op_date] = -(op.op_payment * rate_for_date[op.op_currency])  # reverting the sign
+                dates_values[op.op_date] = -(op.op_payment.ammount * rate_for_date[op.op_currency])  # reverting the sign
             else:
                 logger.warning(f'Unsupported currency: {op.op_currency}')
 
