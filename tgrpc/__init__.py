@@ -40,6 +40,8 @@ class tgrpc_parser():
 
     channel = None
 
+    DEBUG_IDS = []
+
     def __init__(self, token):
         self.token = token
 
@@ -53,6 +55,24 @@ class tgrpc_parser():
 
             self.channel = grpc.secure_channel(self.api_endpoint, composite)
         return self.channel
+
+    def _debug_ids(func):
+        # decorator to debug Figis and Tickers
+        def wrapper(self, *args, **kwargs):
+            # если есть запросы к figi/ticker из списка для дебага в аргументах функции,
+            # выставить временный уровень логов на DEBUG
+            def_log_level = logging.getLogger().level
+            if len(self.DEBUG_IDS) > 0:
+                for id in self.DEBUG_IDS:
+                    if id in args or id in kwargs.values():
+                        logging.getLogger().setLevel(logging.DEBUG)
+                        break
+
+            return_val = func(self, *args, **kwargs)
+
+            logging.getLogger().setLevel(def_log_level)
+            return return_val
+        return wrapper
 
     def _catch_grpc_error(func):
         # Decorator function to catch GRPC errors
@@ -97,6 +117,7 @@ class tgrpc_parser():
                                          account.closed_date, account.type, account.status))
         return accounts_list
 
+    @_debug_ids
     @_catch_grpc_error
     def get_candles_raw(self, figi, start_date, end_date, interval=CANDLE_INTERVALS.DAY):
         """Возвращает сырые данные о свечах из API
@@ -127,6 +148,7 @@ class tgrpc_parser():
         candles_stub = stub.GetCandles(request)
         return candles_stub.candles
 
+    @_debug_ids
     def get_candles(self, figi, start_date, end_date, interval=CANDLE_INTERVALS.DAY):
         """Возвращает данные о свечах с коррекцией
         на цену номинала Облигации и фьючерса
@@ -157,6 +179,7 @@ class tgrpc_parser():
                 candles_out.append(Candle.from_api(candle))
         return candles_out
 
+    @_debug_ids
     def get_currencies(self, account_id):
         money = self.get_positions(account_id).money
         currencies = []
@@ -164,6 +187,7 @@ class tgrpc_parser():
             currencies.append(Currency(currency))
         return currencies
 
+    @_debug_ids
     @_catch_grpc_error
     def get_instrument_raw(self, id,
                            id_type=INSTRUMENT_ID_TYPE.Figi,
@@ -203,8 +227,10 @@ class tgrpc_parser():
             logger.debug(f"Get Future {id}")
             result = stub.FutureBy(request)
 
+        logger.debug(result)
         return result.instrument
 
+    @_debug_ids
     def get_instrument(self, id,
                        id_type=INSTRUMENT_ID_TYPE.Figi,
                        instrument_type=None,
@@ -226,6 +252,7 @@ class tgrpc_parser():
         logger.debug(f"Got instrument {instrument.name} - {instrument.figi}")
         return instrument_out
 
+    @_debug_ids
     @_catch_grpc_error
     def get_last_price_raw(self, figi):
         """Возвращает текущую 'сырую' цену на ОДИН Figi
@@ -248,6 +275,7 @@ class tgrpc_parser():
         price = Price.fromQuotation(tmp_price).ammount
         return price
 
+    @_debug_ids
     def get_last_price(self, figi, instrument_type=None):
         """Возвращает истинную текущую цену на ОДИН Figi
         с коррекцией на номинал Облигаций и Фьючерсов
@@ -265,7 +293,7 @@ class tgrpc_parser():
         if instrument_type.lower() == "bond":
             # сырая цена облигации - это процент от номинала
             # расчет ведется через высчитывание этой доли
-            logger.info("Calculate True Bond price")
+            logger.debug("Calculate True Bond price")
             full_instrument = self.get_instrument_raw(figi,
                                                       id_type=INSTRUMENT_ID_TYPE.Figi,
                                                       instrument_type=instrument_type)
@@ -277,6 +305,7 @@ class tgrpc_parser():
             pass
         return raw_price
 
+    @_debug_ids
     @_catch_grpc_error
     def get_operations(self, account_id,
                        start_date=datetime(2020, 11, 1, 0, 0),
@@ -303,12 +332,14 @@ class tgrpc_parser():
             operations_out.append(Operation.from_api(operation))
         return operations_out
 
+    @_debug_ids
     @_catch_grpc_error
     def get_positions(self, account_id):
         stub = operations_pb2_grpc.OperationsServiceStub(self.get_channel())
         positions_stub = stub.GetPositions(operations_pb2.PositionsRequest(account_id=account_id))
         return positions_stub
 
+    @_debug_ids
     @_catch_grpc_error
     def get_portfolio(self, account_id):
         stub = operations_pb2_grpc.OperationsServiceStub(self.get_channel())
