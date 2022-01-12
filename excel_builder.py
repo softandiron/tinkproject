@@ -35,7 +35,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     workbook = xlsxwriter.Workbook(excel_file_name)
     workbook.set_size(1440, 1024)  # set default window size
     worksheet_port = workbook.add_worksheet("Portfolio")
-    worksheet_ops = workbook.add_worksheet("Operations")
+    worksheet_oplist = workbook.add_worksheet("Operations list")
     worksheet_divs = workbook.add_worksheet("Coupons and Dividends")
     worksheet_deduct = workbook.add_worksheet("IIS Deduction")
     worksheet_parts = workbook.add_worksheet("Parts")
@@ -44,9 +44,13 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     cell_format = {}
     cell_format['center'] = workbook.add_format({'align': 'center'})
     cell_format['right'] = workbook.add_format({'align': 'right'})
+    cell_format['right_number'] = workbook.add_format({'align': 'right',
+                                                       'num_format': '## ### ##0.00'})
     cell_format['left'] = workbook.add_format({'align': 'left'})
     cell_format['bold_center'] = workbook.add_format({'align': 'center', 'bold': True})
     cell_format['bold_right'] = workbook.add_format({'align': 'right', 'bold': True})
+    cell_format['date_time'] = workbook.add_format({'align': 'center',
+                                                    'num_format': 'YYYY-MM-DD hh:mm:ss;@'})
     for currency, data in currencies.currencies_data.items():
         cell_format[currency] = workbook.add_format({'num_format': data['num_format'],
                                                      'align': 'right'})
@@ -64,6 +68,25 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
 
     worksheet_port.set_column('A:A', 16)
     worksheet_port.write(0, 0, config.now_date.strftime('%Y %b %d  %H:%M'), cell_format['bold_center'])
+
+    def print_headers(worksheet, start_col, start_row, headers=[], set_filter=True):
+        """Вывод строки заголовков и установка нужной ширины столбца
+
+        Args:
+            worksheet: лист, на котором надо сделать
+            start_col (int): начальная колонка
+            start_row (int): начальный ряд
+            headers (list, optional): список рядов в формате [["название столбца", ширина], ...].
+                                      Defaults to [].
+            set_filter (bool, optional): Формировать ли фильрацию списка. Defaults to True.
+        """
+        n = 0
+        for header in headers:
+            worksheet.write(start_row, start_col + n, header[0], cell_format['bold_center'])
+            worksheet.set_column(start_col+n, start_col+n, header[1])
+            n += 1
+        if set_filter:
+            worksheet.autofilter(start_row, start_col, start_row, start_col+n-1)
 
     def print_portfolio(s_row, s_col):
         logger.info('building portfolio table..')
@@ -210,135 +233,58 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
 
         return last_row
 
-    def print_operations(s_row, s_col):
+    def print_operations():
         logger.info('building operations table..')
         start_col = 1
-        account_id = account.broker_account_id
-        # запрашиваем - нужно ли показывать "пустые"/невыполненные операции
-        show_empty = config.get_account_show_empty_operations(account_id)
+        start_row = 2
 
-        def print_operations_by_type(ops_type, start_row, start_col):
-            # set column width
-            worksheet_ops.set_column(start_col, start_col, 18, cell_format['right'])
-            worksheet_ops.set_column(start_col + 1, start_col + 1, 16, cell_format['right'])
-            worksheet_ops.set_column(start_col + 2, start_col + 2, 4, cell_format['right'])
+        # Выводим строку расчета итогов
+        n_ops = len(my_operations)
+        end_line = start_row+n_ops+3
+        worksheet_oplist.write(start_row, start_col+3, "ИТОГО:", cell_format['bold_right'])
+        worksheet_oplist.write_formula(start_row, start_col+4,
+                                       f"=SUBTOTAL(9, F6:F{end_line})",
+                                       cell_format['right_number'])
+        # TODO: number formatting
+        worksheet_oplist.write_formula(start_row, start_col+6,
+                                       f"=SUBTOTAL(9, H6:H{end_line})",
+                                       cell_format["RUB"])
 
-            # header
-            name = ops_type + ' operations'
-            worksheet_ops.write(start_row, start_col, name, cell_format['bold_center'])
-            worksheet_ops.write(start_row, start_col + 1, 'value', cell_format['bold_center'])
-            # body
+        start_row += 2
+        # Выводим заголовки
+        headers = [
+            # ["Название столбца", ширина],
+            ["Дата", 18],
+            ["Тип операции", 35],
+            ["Тикер", 15],
+            ["figi", 18],
+            ["Сумма", 15],
+            ["Валюта", 8],
+            ["Сумма в руб", 15],
+            ["Статус", 8],
+        ]
+        print_headers(worksheet_oplist, start_col, start_row, headers)
+
+        # заполняем список операций
+        for operation in my_operations:
             start_row += 1
-            worksheet_ops.write(start_row, start_col, 'start', cell_format['right'])
-            for operation in my_operations:
-                if operation.op_status != "Done" and not show_empty:
-                    # не показывать "пустые"/невыполненнные операции
-                    continue
-                if operation.op_type == ops_type:
-                    # operation's date
-                    worksheet_ops.write(start_row, start_col, operation.op_date.strftime('%Y %b %d  %H:%M'), cell_format['left'])
-                    # operation's value (payment in the operation's currency)
-                    if operation.op_currency in supported_currencies:
-                        worksheet_ops.write(start_row, start_col + 1, operation.op_payment.ammount, cell_format[operation.op_currency])
-                    else:
-                        worksheet_ops.write(start_row, start_col + 1, 'unknown currency', cell_format['right'])
-                    start_row += 1
-
-            finish_row = start_row + 1
-            return finish_row
-
-        def print_operations_with_ticker(ops_type, start_row, start_col):
-            # set column width
-            worksheet_ops.set_column(start_col, start_col, 18, cell_format['right'])
-            worksheet_ops.set_column(start_col + 1, start_col + 1, 16, cell_format['right'])
-            worksheet_ops.set_column(start_col + 2, start_col + 2, 16, cell_format['right'])
-            worksheet_ops.set_column(start_col + 3, start_col + 3, 4, cell_format['right'])
-
-            # header
-            name = ops_type + ' operations'
-            worksheet_ops.write(start_row, start_col, name, cell_format['bold_center'])
-            worksheet_ops.write(start_row, start_col + 1, 'ticker', cell_format['bold_center'])
-            worksheet_ops.write(start_row, start_col + 2, 'value', cell_format['bold_center'])
-            # body
-            start_row += 1
-            worksheet_ops.write(start_row, start_col, 'start', cell_format['right'])
-            for operation in my_operations:
-                if operation.op_status != "Done" and not show_empty:
-                    # не показывать "пустые"/невыполненнные операции
-                    continue
-                if operation.op_type == ops_type:
-                    # operation's date
-                    worksheet_ops.write(start_row, start_col, operation.op_date.strftime('%Y %b %d  %H:%M'),
-                                        cell_format['left'])
-                    # operation's ticker
-                    worksheet_ops.write(start_row, start_col + 1, operation.op_ticker,
-                                        cell_format['left'])
-
-                    # operation's value (payment in the operation's currency)
-                    if operation.op_currency in supported_currencies:
-                        worksheet_ops.write(start_row, start_col + 2, operation.op_payment.ammount,
-                                            cell_format[operation.op_currency])
-                    else:
-                        worksheet_ops.write(start_row, start_col + 2, 'unknown currency', cell_format['right'])
-                    start_row += 1
-
-            finish_row = start_row + 1
-            return finish_row
-
-        # PAY IN operations
-        logger.info('building Pay In operations list..')
-        finish_row_payin = print_operations_by_type('PayIn', s_row, s_col)
-        worksheet_ops.write(finish_row_payin, s_col + 1, sum_profile['payin'], cell_format['RUB'])
-
-        # PAY OUT operations
-        logger.info('building Pay Out operations list..')
-        finish_row_payout = print_operations_by_type('PayOut', s_row, s_col + 3)
-        worksheet_ops.write(finish_row_payout, s_col + 4, sum_profile['payout'], cell_format['RUB'])
-
-        # BUY operations
-        logger.info('building Buy operations list..')
-        last_row_buy = print_operations_with_ticker('Buy', s_row, s_col + 6)
-        worksheet_ops.write(last_row_buy, s_col + 8, sum_profile['buy'], cell_format['RUB'])
-        # BUY CARD operations
-        logger.info('building Buy Card operations list..')
-        last_row_buycard = print_operations_with_ticker('BuyCard', last_row_buy + 3, s_col + 6)
-        worksheet_ops.write(last_row_buycard, s_col + 8, sum_profile['buycard'], cell_format['RUB'])
-
-        # SELL operations
-        logger.info('building Sell operations list..')
-        last_row_sell = print_operations_with_ticker('Sell', s_row, s_col + 10)
-        worksheet_ops.write(last_row_sell, s_col + 12, sum_profile['sell'], cell_format['RUB'])
-
-        # Coupon operations
-        logger.info('building Coupon operations list..')
-        last_row_coupon = print_operations_with_ticker('Coupon', s_row, s_col + 14)
-        worksheet_ops.write(last_row_coupon, s_col + 16, sum_profile['coupon'], cell_format['RUB'])
-
-        # Dividend operations
-        logger.info('building Dividend operations list..')
-        last_row_dividend = print_operations_with_ticker('Dividend', s_row, s_col + 18)
-        worksheet_ops.write(last_row_dividend, s_col + 20, sum_profile['dividend'], cell_format['RUB'])
-
-        # Tax operations
-        logger.info('building Tax operations list..')
-        last_row_tax = print_operations_with_ticker('Tax', s_row, s_col + 22)
-        worksheet_ops.write(last_row_tax, s_col + 24, sum_profile['tax'], cell_format['RUB'])
-        # Tax Coupon operations
-        logger.info('building Tax Coupon operations list..')
-        last_row_tax_coupon = print_operations_with_ticker('TaxCoupon', last_row_tax + 3, s_col + 22)
-        worksheet_ops.write(last_row_tax_coupon, s_col + 24, sum_profile['taxcoupon'], cell_format['RUB'])
-        # Tax Dividend operations
-        logger.info('building Tax Dividend operations list..')
-        last_row_tax_dividend = print_operations_with_ticker('TaxDividend', last_row_tax_coupon + 3, s_col + 22)
-        worksheet_ops.write(last_row_tax_dividend, s_col + 24, sum_profile['taxdividend'], cell_format['RUB'])
-
-        # Commission
-        logger.info('building Broker Commission operations list..')
-        last_row_broker_commission = print_operations_by_type('BrokerCommission', s_row, s_col + 26)
-        worksheet_ops.write(last_row_broker_commission, s_col + 27, sum_profile['brokercommission'], cell_format['RUB'])
-        logger.info('building Service Commission operations list..')
-        last_row_broker_serv_commission = print_operations_by_type('ServiceCommission', last_row_broker_commission + 3, s_col + 26)
-        worksheet_ops.write(last_row_broker_serv_commission, s_col + 27, sum_profile['servicecommission'], cell_format['RUB'])
+            # TODO: формат даты...
+            worksheet_oplist.write(start_row, start_col,
+                                   operation.op_date,
+                                   cell_format['date_time'])
+            worksheet_oplist.write(start_row, start_col+1, operation.op_type)
+            if operation.op_ticker is not None and operation.op_ticker != "None":
+                worksheet_oplist.write(start_row, start_col+2, operation.op_ticker)
+            worksheet_oplist.write(start_row, start_col+3, operation.op_figi)
+            worksheet_oplist.write(start_row, start_col+4,
+                                   operation.op_payment.ammount,
+                                   cell_format[operation.op_currency])
+            worksheet_oplist.write(start_row, start_col+5,
+                                   operation.op_currency)
+            worksheet_oplist.write(start_row, start_col+6,
+                                   operation.op_payment_rub,
+                                   cell_format['RUB'])
+            worksheet_oplist.write(start_row, start_col+7, operation.op_status)
 
     def print_statistics(s_row, s_col):
         # investing period
@@ -675,7 +621,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
             n += 1 + line[2]
 
     last_row_pos = print_portfolio(1, 1)
-    print_operations(1, 2)
+    print_operations()
     print_statistics(last_row_pos + 3, 1)
     print_clarification(last_row_pos + 18, 1)
     print_dividends_and_coupons()
