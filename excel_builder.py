@@ -321,7 +321,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
         start_row = 6
         years = []
         for operation in my_operations:
-            if operation.op_type == 'Coupon' or operation.op_type == 'Dividend':
+            if operation.op_type in ['Выплата купонов', 'Выплата дивидендов']:
                 if operation.op_date.strftime('%Y') not in years:
                     years.append(operation.op_date.strftime('%Y'))
 
@@ -331,24 +331,31 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
             # header 1 - year
             worksheet_divs.merge_range(start_row, start_col, start_row, start_col + 4, year, merge_format['bold_center'])
             # header 2 - labels
-            worksheet_divs.set_column(start_col, start_col + 4, 14, cell_format['right'])
+            headers = [
+                # ["Название столбца", ширина],
+                ["Ticker", 14],
+                ["Date", 14],
+                ["Value", 14],
+                ["Tax", 14],
+                ["Value RUB", 14],
+            ]
             start_row += 1
-            worksheet_divs.write(start_row, start_col, 'Ticker', cell_format['bold_center'])
-            worksheet_divs.write(start_row, start_col + 1, 'Date', cell_format['bold_center'])
-            worksheet_divs.write(start_row, start_col + 2, 'Value', cell_format['bold_center'])
-            worksheet_divs.write(start_row, start_col + 3, 'Tax', cell_format['bold_center'])
-            worksheet_divs.write(start_row, start_col + 4, 'Value RUB', cell_format['bold_center'])
+            print_headers(worksheet_divs, start_col, start_row, headers, False)
             start_row += 1
 
             # content
             operations_per_year = []
             for operation in my_operations:
-                if operation.op_type == 'Coupon' or operation.op_type == 'Dividend':
+                if operation.op_type in ['Выплата купонов', 'Выплата дивидендов']:
                     if operation.op_date.strftime('%Y') == year:
                         # print ticker
-                        worksheet_divs.write(start_row, start_col, operation.op_ticker,cell_format['left'])
+                        worksheet_divs.write(start_row, start_col,
+                                             operation.op_ticker,
+                                             cell_format['left'])
                         # print date
-                        worksheet_divs.write(start_row, start_col + 1, operation.op_date.strftime('%Y %b %d'), cell_format['center'])
+                        worksheet_divs.write(start_row, start_col + 1,
+                                             operation.op_date.strftime('%Y %b %d'),
+                                             cell_format['center'])
                         # print value
                         if operation.op_currency in supported_currencies:
                             worksheet_divs.write(start_row, start_col + 2, operation.op_payment.ammount, cell_format[operation.op_currency])
@@ -357,7 +364,8 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                         # print tax
                         tax_payment = 0
                         for tax_op in my_operations:
-                            if (tax_op.op_type == 'TaxCoupon' or tax_op.op_type == 'TaxDividend'):
+                            if tax_op.op_type in ['Удержание налога по купонам',
+                                                  'Удержание налога по дивидендам']:
                                 if tax_op.op_ticker == operation.op_ticker and tax_op.op_date.strftime('%Y %b %d') == \
                                         operation.op_date.strftime('%Y %b %d'):
                                     tax_payment = tax_op.op_payment.ammount
