@@ -57,24 +57,32 @@ class tgrpc_parser():
     def _catch_grpc_error(func):
         # Decorator function to catch GRPC errors
         def wrapper(self, *args, **kwargs):
+            # чтобы можно было повторить вызов, если ошибка в количестве запросов.
             while True:
                 try:
                     return func(self, *args, **kwargs)
                 except grpc.RpcError as rpc_error:
-                    error_code = rpc_error.code().__str__()
-                    if error_code == "StatusCode.RESOURCE_EXHAUSTED":
+                    error_code = rpc_error.code()
+                    if error_code == grpc.StatusCode.RESOURCE_EXHAUSTED:
                         logger.warning(f"Rate limit in {func.__name__} -> Timeout {RATE_LIMIT_TIMEOUT}s")
                         time.sleep(RATE_LIMIT_TIMEOUT)
-                    elif error_code == "StatusCode.UNAUTHENTICATED":
+                        # не возвращает значение, поскольку должно пойти на повтор запроса к API
+                    elif error_code == grpc.StatusCode.UNAUTHENTICATED:
                         logger.error("Authentication failure!")
                         logger.critical("Token incorrect!")
                         return None
-                    else:
-                        logger.error("Got GRPC error")
+                    elif error_code == grpc.StatusCode.INTERNAL:
+                        logger.critical("Tinkoff API internal error")
+                        logger.error(f"during function {func.__name__}")
                         logger.error(rpc_error)
-                        logger.error(error_code)
-                        return
+                        return None
+                    else:
+                        logger.error(f"Got GRPC error in {func.__name__}")
+                        logger.error(rpc_error)
+                        logger.error(error_code.__str__())
+                        return None
                 except Exception as e:
+                    logger.error(f"Got error in {func.__name__}")
                     logger.error(e)
                     return None
         return wrapper
