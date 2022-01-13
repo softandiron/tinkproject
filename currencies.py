@@ -24,12 +24,12 @@ currencies_data = {
     },
     'HKD': {
         'name': 'Гонконгский доллар',
-        'num_format': '# ##0,00 [$HKD]',
+        'num_format': '# ##0.00 [$HKD]',
         'figi': 'TCS0013HSW87',
     },
     'TRY': {
         'name': 'Турецкая лира',
-        'num_format': '# ##0,00 [$TRY]',
+        'num_format': '# ##0.00 [$TRY]',
         'figi': 'BBG0013J12N1',
     },
 }

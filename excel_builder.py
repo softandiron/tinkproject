@@ -445,6 +445,16 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     def print_parts():
         logger.info('printing portfolio parts statistics...')
 
+        start_col = 1
+        start_row = 6
+
+        # Считаем сколько строк займет табличка частей
+        total = 0
+        for currency in supported_currencies:
+            if currency not in sum_profile['parts'].keys():
+                continue
+            total += len(sum_profile['parts'][currency].keys())+1
+
         # Comments in header
         worksheet_parts.merge_range(2, 1, 2, 6,
                                     'Структура долей активов',
@@ -452,30 +462,31 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
         worksheet_parts.merge_range(4, 1, 4, 6,
                                     '* - расчет по курсу ЦБ на текущую дату',
                                     merge_format['left_small'])
-        worksheet_parts.merge_range(34, 1, 34, 3,
+        worksheet_parts.merge_range(start_row+total, start_col, start_row+total, start_col+3,
                                     'Данные для формирования диаграммы',
-                                    merge_format['bold_center'])
-        worksheet_parts.merge_range(35, 1, 35, 3,
+                                    merge_format['bold_left'])
+        worksheet_parts.merge_range(start_row+total+1, start_col, start_row+total+1, start_col+3,
                                     'Выделить и выбрать диаграмму "Солнечные лучи/',
                                     merge_format['left_small'])
-        worksheet_parts.merge_range(36, 1, 36, 3,
+        worksheet_parts.merge_range(start_row+total+2, start_col, start_row+total+2, start_col+3,
                                     'Sunburst" или "Дерево/Treemap"',
                                     merge_format['left_small'])
         # xlsxwriter не позволяет делать sunburst или treemap диаграммы :(
 
-        start_col = 1
-        start_row = 6
         # начальная строка для вывода данных для диаграмм по типу лучей солнца/Sunburst
         # или Дерева/Treemap - к сожалению только таблица данных, xlsxwriter их не вставляет
-        chart_data_row = start_row + 32
+        chart_data_row = start_row+total + 2
 
         # header - labels
+        headers = [
+            ["Value", 14],
+            ["Value RUB", 14],
+            ["Currency", 12],
+            ["Total %", 12],
+        ]
+        print_headers(worksheet_parts, start_col + 2, start_row, headers, False)
         worksheet_parts.set_column(start_col+2, start_col + 3, 14, cell_format['right'])
 
-        worksheet_parts.write(start_row, start_col + 2, 'Value', cell_format['bold_center'])
-        worksheet_parts.write(start_row, start_col + 3, 'Value RUB', cell_format['bold_center'])
-        worksheet_parts.write(start_row, start_col + 4, 'Currency %', cell_format['bold_center'])
-        worksheet_parts.write(start_row, start_col + 5, 'Total %', cell_format['bold_center'])
         start_row += 1
         cell_format['perc'] = workbook.add_format({'num_format': '0.0  ',
                                                    'font_color': get_color(5)})  # >0 for green
@@ -526,7 +537,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
         start_row += 1
         pie_data_start_row = start_row  # сохраняем строку с началом данных для графиков
         currency_count_for_chart = 0  # пересчитаем количество валют, чтобы потом выводить графики
-        
+
         for currency in supported_currencies:
             if currency not in sum_profile['parts'].keys():
                 continue
@@ -561,7 +572,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                                 pie_data_start_row + currency_count_for_chart-1, data_col],
             'data_labels': {'value': True, 'category': True, 'separator': "\n"},
         })
-        worksheet_parts.insert_chart('J14', chart)
+        worksheet_parts.insert_chart(start_row+2, start_col, chart)
 
         # Гистограмма с накоплением - труктура активов по типам и валютам
         chart2 = workbook.add_chart({'type': 'column', 'subtype': 'stacked'})
@@ -575,7 +586,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                 'data_labels': {'value': True},
                 'gap': 60,
             })
-        worksheet_parts.insert_chart('J29', chart2)
+        worksheet_parts.insert_chart(start_row+17, start_col, chart2)
 
     def print_clarification(s_row, s_col ):
         logger.info('printing clarification..')

@@ -15,6 +15,7 @@ from classes import PortfolioOperation, PortfolioPosition
 from configuration import Config
 
 import data_parser
+from currencies import currency_code_by_figi
 
 import excel_builder
 from excel_builder import build_excel_file, supported_currencies, assets_types
@@ -204,7 +205,7 @@ def calculate_parts():
     logger.info('calculating parts')
     parts = {'totalValue': cash_rub,
              'RUB': {
-                 'Currency': {
+                 'currency': {
                     'value': cash_rub,
                     'valueRub': cash_rub
                     },
@@ -215,12 +216,9 @@ def calculate_parts():
     for pos in my_positions:
         currency = pos.currency
         value = pos.market_cost
-        if pos.position_type == "Currency":
+        if pos.position_type == "currency":
             value = pos.balance
-            if pos.ticker == "USD000UTSTOM":
-                currency = "USD"
-            elif pos.ticker == "EUR_RUB__TOM":
-                currency = "EUR"
+            currency = currency_code_by_figi(pos.figi)
 
         if currency not in parts.keys():
             parts[currency] = {'value': 0,
