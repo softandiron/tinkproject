@@ -10,6 +10,7 @@ currencies_data = {
         'name': 'Доллар США',
         'num_format': '## ### ##0.00   [$$-409]',
         'figi': 'BBG0013HGFT4',
+        'altfigi': ['USD000UTSTOM']
     },
     'EUR': {
         'name': 'Евро',
@@ -34,3 +35,13 @@ currencies_data = {
 }
 
 supported_currencies = currencies_data.keys()
+
+
+def currency_code_by_figi(figi):
+    for name, item in currencies_data.items():
+        if 'figi' in item.keys() and item['figi'] == figi:
+            return name
+        elif 'altfigi' in item.keys() and figi in item['altfigi']:
+            return name
+    print(figi)
+    return "N/A"

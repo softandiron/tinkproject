@@ -139,8 +139,14 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                 def print_position_data(row, col):
                     worksheet_port.write(row, col, this_pos.name, cell_format['left'])
                     worksheet_port.write(row, col + 1, this_pos.ticker, cell_format['left'])
-                    worksheet_port.write(row, col + 2, this_pos.balance, cell_format['left'])
-                    worksheet_port.write(row, col + 3, this_pos.currency, cell_format['left'])
+                    if this_pos.position_type != "currency":
+                        worksheet_port.write(row, col + 2, this_pos.balance, cell_format['right'])
+                        worksheet_port.write(row, col + 3, this_pos.currency, cell_format['left'])
+                    else:
+                        worksheet_port.write(row, col + 2, this_pos.balance, cell_format['right_number'])
+                        # для валютных позиций вывести их 3-буквенное обозначение
+                        code = currencies.currency_code_by_figi(this_pos.figi)
+                        worksheet_port.write(row, col + 3, code, cell_format['left'])
 
                     if this_pos.currency in supported_currencies:
                         worksheet_port.write(row, col + 4, this_pos.ave_price, cell_format[this_pos.currency])
