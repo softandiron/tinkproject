@@ -199,6 +199,9 @@ class Instrument():
 
     @staticmethod
     def from_api(instrument, instrument_type):
+        isin = ""
+        if instrument_type != "futures":
+            isin = instrument.isin
         return Instrument(
             instrument.figi,
             instrument.ticker,
@@ -207,7 +210,7 @@ class Instrument():
             instrument_type,
             instrument.currency,
             instrument.min_price_increment,
-            instrument.isin
+            isin
         )
 
     @property

@@ -119,6 +119,8 @@ def creating_positions_objects():
         curr_market_price = data_parser.get_current_market_price(this_pos.figi)
 
         currency = this_pos.average_position_price.currency
+        if this_pos.instrument_type == "futures":
+            currency = this_pos_instrument.currency.upper()
         market_rate = market_rate_today[currency]
         cb_rate = data_parser.get_exchange_rate_db(today_date, currency)
 

@@ -223,9 +223,13 @@ class tgrpc_parser():
         elif instrument_type.lower() == "currency":
             logger.debug(f"Get Currency {id}")
             result = stub.CurrencyBy(request)
-        elif instrument_type.lower() == "future":
+        elif instrument_type.lower() == "futures":
             logger.debug(f"Get Future {id}")
             result = stub.FutureBy(request)
+        else:
+            logger.warning(f"Задан неизвестный тип инструмента: {instrument_type}")
+            logger.warning(f"Get base data on instrument {id}")
+            result = stub.GetInstrumentBy(request)
 
         logger.debug(result)
         return result.instrument
