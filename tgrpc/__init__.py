@@ -258,26 +258,29 @@ class tgrpc_parser():
 
     @_debug_ids
     @_catch_grpc_error
-    def get_last_price_raw(self, figi):
-        """Возвращает текущую 'сырую' цену на ОДИН Figi
+    def get_last_price_raw(self, figis):
+        """Возвращает текущую 'сырую' цену по одному или списку Figi
         Не корректирует на номинал облигации и фьючерса,
         для облигации возвращает процент от номинала,
         для фьючерсов - индекс от номинала
-        TODO: сделать возможность запроса массивом.
+
         Args:
             figi (str): запрашиваемый Figi
 
         Returns:
-            Decimal: цена на запрашиваемый Figi
+            Dict: {"figi": Decimal(price),...} цена на запрашиваемые Figi
         """
+        if isinstance(figis, str):
+            figis = [figis, ]
+
         stub = marketdata_pb2_grpc.MarketDataServiceStub(self.get_channel())
-        figis = [figi, ]
 
         price_stub = stub.GetLastPrices(marketdata_pb2.GetLastPricesRequest(figi=figis))
 
-        tmp_price = price_stub.last_prices[0].price
-        price = Price.fromQuotation(tmp_price).ammount
-        return price
+        prices_out = {}
+        for position in price_stub.last_prices:
+            prices_out[position.figi] = Price.fromQuotation(position.price).ammount
+        return prices_out
 
     @_debug_ids
     def get_last_price(self, figi, instrument_type=None):
@@ -291,6 +294,7 @@ class tgrpc_parser():
             Decimal: цена на запрашиваемый Figi
         """
         raw_price = self.get_last_price_raw(figi)
+        raw_price = raw_price[figi]
         if instrument_type is None:
             instrument = self.get_instrument_raw(figi, id_type=INSTRUMENT_ID_TYPE.Figi)
             instrument_type = instrument.instrument_type
