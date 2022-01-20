@@ -46,9 +46,10 @@ class PortfolioPosition:
         Returns:
             PortfolioPosition: объект позиции портфолио со всеми данными
         """
+        currency = instrument.currency.upper()
 
         pos = PortfolioPosition(pp.figi, instrument.name, instrument.ticker, Decimal(pp.balance), pp.instrument_type,
-                                pp.average_position_price.currency, pp.average_position_price.ammount,
+                                currency, pp.average_position_price.ammount,
                                 exp_yield=pp.expected_yield)
 
         pos.current_market_price = current_market_price
