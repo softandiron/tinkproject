@@ -1,5 +1,27 @@
 # tinkproject
 
+
+## ВНИМАНИЕ!!! API-2.0
+
+В ветке [API2](https://github.com/softandiron/tinkproject/tree/API2) идет активная проработка перехода на новый API!
+
+Уже отображается на много больше информации, чем было при первой версии API:
+* Более 40 видов операций
+* Внебиржевые тикеры и сделки
+* Фьючерсы
+* Другие валюты (HKD, CHF, GBP...)
+* прочее ...
+
+Сохраняются отдельные проблемы, связанные с некоторой сыростью самого нового API, но они потихоньку решаются.
+
+Приглашаем к участию в разработке.
+
+План работ можно отследить тут: [Проект - Переход на Tinkoff API 2 ](https://github.com/softandiron/tinkproject/projects/2).
+
+**Ждем Вам!**
+
+## К старой версии...
+
 The program for portfolio analysis via Tinkoff API
 
 Hello! This is my first project, please, don't judge me. This project was developed for Tinkoff Investments' clients, like me, to gather accurate and full information about portfolio into Excel table.
@@ -120,7 +142,7 @@ docker run --rm -it -v $(pwd):/app tinkproject
 
 Структура портфеля по валютам и типам активов. Представлено в подробном и сокращенном вариантах, а так же в графическом представлении.
 
-## Ограничения, связанные с особенностями API Тинькофф банка
+## Ограничения, связанные с особенностями API v1 Тинькофф банка
 
 * Выводятся только RUB, USD, EUR. Остальные валюты получить на данный момент невозможно. (https://github.com/TinkoffCreditSystems/invest-openapi/issues/478)
 * Только биржевые бумаги. Внебиржевые активы не выводятся. (https://github.com/TinkoffCreditSystems/invest-openapi/issues/331)
