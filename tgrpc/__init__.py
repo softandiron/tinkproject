@@ -170,7 +170,7 @@ class tgrpc_parser():
         instrument_type = instrument.instrument_type
         if instrument_type.lower() == "bond":
             full_instrument = self.get_instrument_raw(figi, instrument_type=instrument_type)
-            nominal = MoneyAmmount(full_instrument.nominal).ammount
+            nominal = MoneyAmmount.fromMoneyAmmount(full_instrument.nominal).ammount
         candles_out = []
         for candle in candles:
             if instrument_type.lower() == "bond":
@@ -301,7 +301,7 @@ class tgrpc_parser():
             full_instrument = self.get_instrument_raw(figi,
                                                       id_type=INSTRUMENT_ID_TYPE.Figi,
                                                       instrument_type=instrument_type)
-            nominal = MoneyAmmount(full_instrument.nominal)
+            nominal = MoneyAmmount.fromMoneyAmmount(full_instrument.nominal)
             price = Decimal(raw_price/100*nominal.ammount)
             return price
         elif instrument_type.lower() == "future":

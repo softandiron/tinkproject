@@ -98,9 +98,11 @@ class MoneyAmmount():
     currency: str
     ammount: Decimal
 
-    def __init__(self, money_ammount):
-        self.currency = money_ammount.currency
-        self.ammount = Price.fromQuotation(money_ammount).ammount
+    @staticmethod
+    def fromMoneyAmmount(money_ammount):
+        currency = money_ammount.currency
+        ammount = Price.fromQuotation(money_ammount).ammount
+        return MoneyAmmount(currency, ammount)
 
 
 @dataclass
@@ -255,8 +257,8 @@ class Operation():
         return Operation(
             operation.id,
             operation.currency,
-            MoneyAmmount(operation.payment),
-            MoneyAmmount(operation.price),
+            MoneyAmmount.fromMoneyAmmount(operation.payment),
+            MoneyAmmount.fromMoneyAmmount(operation.price),
             operation.state,
             operation.quantity,
             operation.figi,
@@ -341,8 +343,8 @@ class PortfolioPosition():
         return PortfolioPosition(position.figi,
                                  position.instrument_type,
                                  Decimal(position.quantity),
-                                 MoneyAmmount(position.average_position_price),
-                                 MoneyAmmount(position.current_nkd),
+                                 MoneyAmmount.fromMoneyAmmount(position.average_position_price),
+                                 MoneyAmmount.fromMoneyAmmount(position.current_nkd),
                                  Decimal(position.expected_yield),
                                  position.average_position_price_pt
                                  )
