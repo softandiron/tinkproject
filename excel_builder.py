@@ -11,7 +11,7 @@ from configuration import Config
 # For backward compatibility - needs to be deprecated later
 # after merging parts tables
 supported_currencies = currencies.supported_currencies
-assets_types = ['share', 'bond', 'etf', 'other', 'currency']
+assets_types = ['share', 'bond', 'etf', 'futures', 'currency']
 
 logger = logging.getLogger("ExBuild")
 logger.setLevel(logging.INFO)
@@ -251,7 +251,6 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
         worksheet_oplist.write_formula(start_row, start_col+4,
                                        f"=SUBTOTAL(9, F6:F{end_line})",
                                        cell_format['right_number'])
-        # TODO: number formatting
         worksheet_oplist.write_formula(start_row, start_col+6,
                                        f"=SUBTOTAL(9, H6:H{end_line})",
                                        cell_format["RUB"])
@@ -634,7 +633,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                      'которая рассчитывает эффективность инвестирования '
                      'с учётом всех пополнений и выводов средств', 3],
 
-            ['', ' Разработано @softandiron и контрибьюторами. Версия v2.x, 2021 год.', 0],
+            ['', ' Разработано @softandiron и контрибьюторами. Версия v3.x, 2022 год.', 0],
             ['', ' GitHub: https://github.com/softandiron/tinkproject', 0]
         ]
 

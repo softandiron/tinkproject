@@ -241,3 +241,8 @@ class Config:
         status = self.parse_boolean(status)
         logger.debug(str(status) + " " + str(type(status)))
         return status
+
+    def get_debug_figis(self):
+        if "debug_figis" in self.__config:
+            return self.__config["debug_figis"]
+        return []

@@ -324,7 +324,7 @@ def create_operations_objects():
             logger.warning('unknown currency in operation: ' + this_op)
             payment_rub = 0
 
-        my_operations.append(PortfolioOperation(this_op.operation_type,
+        my_operations.append(PortfolioOperation(this_op.type,
                                                 this_op.date,
                                                 this_op.currency,
                                                 this_op.payment,
@@ -444,6 +444,9 @@ if __name__ == '__main__':
     start_time = time.time()
     tax_rate = 13  # percents
     logger.info('Start')
+
+    # Если надо какие то figi прогнать через DEBUG
+    data_parser.tinkoff_access.DEBUG_IDS = config.get_debug_figis()
 
     # get accounts
     accounts = data_parser.get_accounts()
