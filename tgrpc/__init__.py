@@ -18,6 +18,7 @@ from tgrpc.classes import (Account,
                            Candle,
                            CANDLE_INTERVALS,
                            Currency,
+                           FutureMargin,
                            Instrument,
                            INSTRUMENT_ID_TYPE,
                            MoneyAmmount,
@@ -25,6 +26,7 @@ from tgrpc.classes import (Account,
                            PortfolioPosition,
                            Price,  # Quotation from grpc
                            )
+import tgrpc.service as service
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -171,10 +173,18 @@ class tgrpc_parser():
         if instrument_type.lower() == "bond":
             full_instrument = self.get_instrument_raw(figi, instrument_type=instrument_type)
             nominal = MoneyAmmount.fromMoneyAmmount(full_instrument.nominal).ammount
+        if instrument_type.lower() == "futures":
+            margins = self.get_future_margin(figi)
+            min_price_increment = margins.min_price_increment
+            min_price_increment_amount = margins.min_price_increment_amount
         candles_out = []
         for candle in candles:
             if instrument_type.lower() == "bond":
                 candles_out.append(Candle.bond_candle_from_api(candle, nominal))
+            elif instrument_type.lower() == "futures":
+                candles_out.append(Candle.futures_candle_from_api(candle,
+                                                                  min_price_increment,
+                                                                  min_price_increment_amount))
             else:
                 candles_out.append(Candle.from_api(candle))
         return candles_out
@@ -195,7 +205,7 @@ class tgrpc_parser():
         result = stub.GetFuturesMargin(request)
 
         logger.debug(result)
-        return result
+        return FutureMargin.from_api(result)
 
     @_debug_ids
     @_catch_grpc_error
@@ -311,7 +321,7 @@ class tgrpc_parser():
         if instrument_type.lower() == "bond":
             return self._bond_price_calculation(raw_price, figi)
         elif instrument_type.lower() == "futures":
-            return self._futures_price_calculation(raw_price, figi)
+            return self.futures_price_calculation(raw_price, figi)
 
         # если не требуется специфического расчета (для акций и етф, например)
         return raw_price
@@ -379,12 +389,12 @@ class tgrpc_parser():
         full_instrument = self.get_instrument_raw(figi,
                                                   id_type=INSTRUMENT_ID_TYPE.Figi,
                                                   instrument_type="bond")
-        nominal = MoneyAmmount.fromMoneyAmmount(full_instrument.nominal)
-        price = Decimal(raw_price/100*nominal.ammount)
+        nominal = MoneyAmmount.fromMoneyAmmount(full_instrument.nominal).ammount
+        price = service.bond_price_calculation(raw_price, nominal)
         return price
 
     @_debug_ids
-    def _futures_price_calculation(self, raw_price, figi):
+    def futures_price_calculation(self, raw_price, figi):
         """Расчет реальной цены фьчерсов в валюте
 
         Args:
@@ -394,19 +404,14 @@ class tgrpc_parser():
         Returns:
             Decimal: цена в валюте фьчерса
         """
-        # https://tinkoff.github.io/investAPI/faq_marketdata/#futures
-        # **price** / **min_price_increment** * **min_price_increment_amount**
-        # Где
-        # **price** — текущая котировка ценной бумаги;
-        # **min_price_increment** — шаг цены;
-        # **min_price_increment_amount** — стоимость шага цены.
         logger.debug("Calculate True Future price")
 
         margin = self.get_future_margin(figi)
-        min_price_increment = Decimal(margin.min_price_increment)
-        min_price_increment_amount = Price.fromQuotation(margin.min_price_increment_amount).ammount
+        min_price_increment = margin.min_price_increment
+        min_price_increment_amount = margin.min_price_increment_amount
 
-        logger.debug(f"{raw_price} / {min_price_increment} * {min_price_increment_amount}")
-        price = raw_price / min_price_increment * min_price_increment_amount
+        price = service.futures_price_calculation(raw_price,
+                                                  min_price_increment,
+                                                  min_price_increment_amount)
         logger.debug(price)
         return Decimal(price)

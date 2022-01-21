@@ -14,6 +14,10 @@ import tgrpc.instruments_pb2 as instruments_pb2
 import tgrpc.marketdata_pb2 as marketdata_pb2
 import tgrpc.operations_pb2 as operations_pb2
 
+from tgrpc.service import (bond_price_calculation,
+                           futures_price_calculation
+                           )
+
 logger = logging.getLogger("tgrpc-classes")
 
 ACCOUNT_TYPES = {
@@ -137,13 +141,58 @@ class Candle():
             Candle: корректированная свеча облигации
         """
         open = Price.fromQuotation(candle.open).ammount
-        open_out = Decimal(open / 100 * nominal)
+        open_out = bond_price_calculation(open, nominal)
+
         close = Price.fromQuotation(candle.close).ammount
-        close_out = Decimal(close / 100 * nominal)
+        close_out = bond_price_calculation(close, nominal)
+
         high = Price.fromQuotation(candle.high).ammount
-        high_out = Decimal(high / 100 * nominal)
+        high_out = bond_price_calculation(high, nominal)
+
         low = Price.fromQuotation(candle.low).ammount
-        low_out = Decimal(low / 100 * nominal)
+        low_out = bond_price_calculation(low, nominal)
+
+        return Candle(open_out,
+                      close_out,
+                      high_out,
+                      low_out,
+                      candle.volume,
+                      candle.time.ToDatetime(),
+                      candle.is_complete)
+
+    @staticmethod
+    def futures_candle_from_api(candle,
+                                min_price_increment=Decimal(1.0),
+                                min_price_increment_amount=Decimal(1.0)):
+        """Возвращает свечу для Облигации с коррекцией на номинал
+
+        Args:
+            candle (): свеча из API
+            nominal (Decimal, optional): Номинал облигации. Defaults to Decimal(1000).
+
+        Returns:
+            Candle: корректированная свеча облигации
+        """
+        open = Price.fromQuotation(candle.open).ammount
+        open_out = futures_price_calculation(open,
+                                             min_price_increment,
+                                             min_price_increment_amount)
+
+        close = Price.fromQuotation(candle.close).ammount
+        close_out = futures_price_calculation(close,
+                                              min_price_increment,
+                                              min_price_increment_amount)
+
+        high = Price.fromQuotation(candle.high).ammount
+        high_out = futures_price_calculation(high,
+                                             min_price_increment,
+                                             min_price_increment_amount)
+
+        low = Price.fromQuotation(candle.low).ammount
+        low_out = futures_price_calculation(low,
+                                            min_price_increment,
+                                            min_price_increment_amount)
+
         return Candle(open_out,
                       close_out,
                       high_out,
@@ -186,6 +235,28 @@ class Currency():
     def balance(self):
         # for backward compatibility
         return self.ammount
+
+
+@dataclass
+class FutureMargin():
+    initial_margin_on_buy: Decimal  # Гарантийное обеспечение при покупке.
+    initial_margin_on_sell: Decimal  # Гарантийное обеспечение при продаже.
+    min_price_increment: Decimal  # Шаг цены.
+    min_price_increment_amount: Decimal  # Стоимость шага цены.
+    currency: str = None
+
+    @staticmethod
+    def from_api(margins):
+        initial_margin_on_buy = MoneyAmmount.fromMoneyAmmount(margins.initial_margin_on_buy)
+        initial_margin_on_sell = MoneyAmmount.fromMoneyAmmount(margins.initial_margin_on_sell)
+        min_price_increment = Decimal(margins.min_price_increment)
+        min_price_increment_amount = Price.fromQuotation(margins.min_price_increment_amount)
+        currency = initial_margin_on_buy.currency
+        return FutureMargin(initial_margin_on_buy.ammount,
+                            initial_margin_on_sell.ammount,
+                            min_price_increment,
+                            min_price_increment_amount.ammount,
+                            currency)
 
 
 @dataclass
@@ -346,5 +417,5 @@ class PortfolioPosition():
                                  MoneyAmmount.fromMoneyAmmount(position.average_position_price),
                                  MoneyAmmount.fromMoneyAmmount(position.current_nkd),
                                  Decimal(position.expected_yield),
-                                 position.average_position_price_pt
+                                 Price.fromQuotation(position.average_position_price_pt).ammount
                                  )
