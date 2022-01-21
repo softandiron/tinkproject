@@ -122,6 +122,12 @@ def creating_positions_objects():
         market_rate = market_rate_today[currency]
         cb_rate = data_parser.get_exchange_rate_db(today_date, currency)
 
+        if this_pos_instrument.type.lower() == "futures":
+            average_position_price = data_parser.tinkoff_access.futures_price_calculation(
+                this_pos.average_position_price_pt, this_pos.figi
+            )
+            this_pos.average_position_price = MoneyAmmount(currency, average_position_price)
+
         tmp_position = PortfolioPosition.from_api_data(this_pos, this_pos_instrument,
                                                        curr_market_price,
                                                        market_rate, cb_rate)
