@@ -20,6 +20,8 @@ from currencies import currency_code_by_figi
 import excel_builder
 from excel_builder import build_excel_file, supported_currencies, assets_types
 
+from tgrpc.classes import MoneyAmmount
+
 
 def get_portfolio_cash_rub():
     for cur in currencies:

@@ -123,6 +123,7 @@ def get_figi_history_price(figi, date=datetime.now()):
     except IndexError:
         instrument = get_instrument_by_figi(figi)
         logger.error("Что-то не то со свечами! В этот день было IPO? Или размещение средств?")
+        logger.error("Внебиржевая бумага?")
         logger.error(f"{date} - {figi} - {instrument.ticker}")
         logger.error(candles)
         return None
