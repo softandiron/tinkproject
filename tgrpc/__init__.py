@@ -23,7 +23,7 @@ from tgrpc.classes import (Account,
                            MoneyAmmount,
                            Operation,
                            PortfolioPosition,
-                           Price,
+                           Price,  # Quotation from grpc
                            )
 
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -189,6 +189,16 @@ class tgrpc_parser():
 
     @_debug_ids
     @_catch_grpc_error
+    def get_future_margin(self, figi):
+        stub = instruments_pb2_grpc.InstrumentsServiceStub(self.get_channel())
+        request = instruments_pb2.GetFuturesMarginRequest(figi=figi)
+        result = stub.GetFuturesMargin(request)
+
+        logger.debug(result)
+        return result
+
+    @_debug_ids
+    @_catch_grpc_error
     def get_instrument_raw(self, id,
                            id_type=INSTRUMENT_ID_TYPE.Figi,
                            instrument_type=None,
@@ -299,18 +309,11 @@ class tgrpc_parser():
             instrument = self.get_instrument_raw(figi, id_type=INSTRUMENT_ID_TYPE.Figi)
             instrument_type = instrument.instrument_type
         if instrument_type.lower() == "bond":
-            # сырая цена облигации - это процент от номинала
-            # расчет ведется через высчитывание этой доли
-            logger.debug("Calculate True Bond price")
-            full_instrument = self.get_instrument_raw(figi,
-                                                      id_type=INSTRUMENT_ID_TYPE.Figi,
-                                                      instrument_type=instrument_type)
-            nominal = MoneyAmmount.fromMoneyAmmount(full_instrument.nominal)
-            price = Decimal(raw_price/100*nominal.ammount)
-            return price
-        elif instrument_type.lower() == "future":
-            # TODO: реализовать расчет цены фьючерсов
-            pass
+            return self._bond_price_calculation(raw_price, figi)
+        elif instrument_type.lower() == "futures":
+            return self._futures_price_calculation(raw_price, figi)
+
+        # если не требуется специфического расчета (для акций и етф, например)
         return raw_price
 
     @_debug_ids
@@ -359,3 +362,51 @@ class tgrpc_parser():
                 PortfolioPosition.from_api(position)
             )
         return portfolio_out
+
+    @_debug_ids
+    def _bond_price_calculation(self, raw_price, figi):
+        """Расчет реальной цены облигации в валюте
+
+        Args:
+            raw_price (Decimal): цена в процентах номинала
+            figi (str): идентификатор необходимой облигации
+
+        Returns:
+            Decimal: цена в валюте облигации
+        """
+        # https://tinkoff.github.io/investAPI/faq_marketdata/#_4
+        logger.debug("Calculate True Bond price")
+        full_instrument = self.get_instrument_raw(figi,
+                                                  id_type=INSTRUMENT_ID_TYPE.Figi,
+                                                  instrument_type="bond")
+        nominal = MoneyAmmount.fromMoneyAmmount(full_instrument.nominal)
+        price = Decimal(raw_price/100*nominal.ammount)
+        return price
+
+    @_debug_ids
+    def _futures_price_calculation(self, raw_price, figi):
+        """Расчет реальной цены фьчерсов в валюте
+
+        Args:
+            raw_price (Decimal): цена в пунктах
+            figi (str): идентификатор необходимого фьючерса
+
+        Returns:
+            Decimal: цена в валюте фьчерса
+        """
+        # https://tinkoff.github.io/investAPI/faq_marketdata/#futures
+        # **price** / **min_price_increment** * **min_price_increment_amount**
+        # Где
+        # **price** — текущая котировка ценной бумаги;
+        # **min_price_increment** — шаг цены;
+        # **min_price_increment_amount** — стоимость шага цены.
+        logger.debug("Calculate True Future price")
+
+        margin = self.get_future_margin(figi)
+        min_price_increment = Decimal(margin.min_price_increment)
+        min_price_increment_amount = Price.fromQuotation(margin.min_price_increment_amount).ammount
+
+        logger.debug(f"{raw_price} / {min_price_increment} * {min_price_increment_amount}")
+        price = raw_price / min_price_increment * min_price_increment_amount
+        logger.debug(price)
+        return Decimal(price)
