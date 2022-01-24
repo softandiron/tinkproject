@@ -147,7 +147,8 @@ def get_position_type(figi, max_age=7*24*60*60):
 def get_instrument_by_figi(figi, instrument_type=None, max_age=7*24*60*60):
     # max_age - timeout for getting old, default - 1 week
     instrument = database.get_instrument_by_figi(figi, max_age)
-    if instrument:
+    if instrument and instrument.type is not None:
+        # проверка на None - чтобы избежать повтора issue #59 при старых данных в кэше
         logger.debug(f"Instrument for {figi} found in DB")
         return instrument
     logger.debug(f"Need to query instrument for {figi} from API")
@@ -157,6 +158,9 @@ def get_instrument_by_figi(figi, instrument_type=None, max_age=7*24*60*60):
         logger.error("Get instrument by figi error")
         logger.error(e)
         return None
+    if instrument_type is None:
+        # если был запрос на базовые данные по бумаге - дополнить тип из полученных данных
+        instrument_type = position_data.instrument_type
     database.put_instrument(position_data, instrument_type)
     # print(position_data)
     return position_data
