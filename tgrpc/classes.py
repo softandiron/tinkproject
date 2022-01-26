@@ -301,16 +301,16 @@ class Operation():
     figi: str
     instrument_type: str
     date: datetime
-    type: str
+    type: str  # Название из API
+    type_code: int  # Код из API
     quantity_rest: int = 0
     parent_operation_id: str = None
 
     @property
-    def operation_type(self):
-        # For backward compatibility
+    def category(self):
         try:
-            return OPERATION_TYPES[self.type]
-        except:
+            return OPERATION_TYPES[self.type_code]["category"]
+        except Exception:
             logger.warning(f"Unknown operation type: {self.type}")
             return "Unknown"
 
@@ -336,43 +336,191 @@ class Operation():
             operation.instrument_type,
             operation.date.ToDatetime(),
             operation.type,
+            operation.operation_type,
             operation.quantity_rest,
             operation.parent_operation_id
         )
 
 
 OPERATION_TYPES = {
-    'Покупка ЦБ': "Buy",
-    'Продажа ЦБ': "Sell",
-
-    'Завод денежных средств': "PayIn",
-    'Вывод денежных средств': "PayOut",
-
-    'Удержание налога по дивидендам': "TaxDividend",
-    'Удержание комиссии за операцию': "BrokerCommission",  # Check!!!
-
-    'Выплата купонов': "Coupon",
-    'Выплата дивидендов': "Dividend",
-    'Частичное погашение облигаций': "",
-    'Полное погашение облигаций': "",
-    'Удержание налога': "Tax"
+    operations_pb2.OPERATION_TYPE_UNSPECIFIED: {
+        "name": "Тип операции не определён",
+        "category": None
+        },
+    operations_pb2.OPERATION_TYPE_INPUT: {
+        "name": "Завод денежных средств",
+        "category": "PayIn"
+        },
+    operations_pb2.OPERATION_TYPE_BOND_TAX: {
+        "name": "Удержание налога по купонам",
+        "category": "TaxCoupon"
+        },
+    operations_pb2.OPERATION_TYPE_OUTPUT_SECURITIES: {
+        "name": "Вывод ЦБ",
+        "category": ""
+        },
+    operations_pb2.OPERATION_TYPE_OVERNIGHT: {
+        "name": "Доход по сделке РЕПО овернайт",
+        "category": ""
+        },
+    operations_pb2.OPERATION_TYPE_TAX: {
+        "name": "Удержание налога",
+        "category": "Tax"
+        },
+    operations_pb2.OPERATION_TYPE_BOND_REPAYMENT_FULL: {
+        "name": "Полное погашение облигаций",
+        "category": "Repa"
+        },
+    operations_pb2.OPERATION_TYPE_SELL_CARD: {
+        "name": "Продажа ЦБ с карты",
+        "category": "Sell"
+        },
+    operations_pb2.OPERATION_TYPE_DIVIDEND_TAX: {
+        "name": "Удержание налога по дивидендам",
+        "category": "TaxDividend"
+        },
+    operations_pb2.OPERATION_TYPE_OUTPUT: {
+        "name": "Вывод денежных средств",
+        "category": "PayOut"
+        },
+    operations_pb2.OPERATION_TYPE_BOND_REPAYMENT: {
+        "name": "Частичное погашение облигаций",
+        "category": ""
+        },
+    operations_pb2.OPERATION_TYPE_TAX_CORRECTION: {
+        "name": "Корректировка налога",
+        "category": "Tax"
+        },
+    operations_pb2.OPERATION_TYPE_SERVICE_FEE: {
+        "name": "Удержание комиссии за обслуживание брокерского счёта",
+        "category": "ServiceCommission"
+        },
+    operations_pb2.OPERATION_TYPE_BENEFIT_TAX: {
+        "name": "Удержание налога за материальную выгоду",
+        "category": "Tax"
+        },
+    operations_pb2.OPERATION_TYPE_MARGIN_FEE: {
+        "name": "Удержание комиссии за непокрытую позицию",
+        "category": "ServiceCommission"
+        },
+    operations_pb2.OPERATION_TYPE_BUY: {
+        "name": "Покупка ЦБ",
+        "category": "Buy"
+        },
+    operations_pb2.OPERATION_TYPE_BUY_CARD: {
+        "name": "Покупка ЦБ с карты",
+        "category": "Buy"
+        },
+    operations_pb2.OPERATION_TYPE_INPUT_SECURITIES: {
+        "name": "Завод ЦБ",
+        "category": "PayIn"
+        },
+    operations_pb2.OPERATION_TYPE_SELL_MARJIN: {
+        "name": "Продажа в результате Margin-call",
+        "category": "Sell"
+        },
+    operations_pb2.OPERATION_TYPE_BROKER_FEE: {
+        "name": "Удержание комиссии за операцию",
+        "category": "BrokerCommission"
+        },
+    operations_pb2.OPERATION_TYPE_BUY_MARGIN: {
+        "name": "Покупка в результате Margin-call",
+        "category": "Buy"
+        },
+    operations_pb2.OPERATION_TYPE_DIVIDEND: {
+        "name": "Выплата дивидендов",
+        "category": "Dividend"
+        },
+    operations_pb2.OPERATION_TYPE_SELL: {
+        "name": "Продажа ЦБ",
+        "category": "Sell"
+        },
+    operations_pb2.OPERATION_TYPE_COUPON: {
+        "name": "Выплата купонов",
+        "category": "Coupon"
+        },
+    operations_pb2.OPERATION_TYPE_SUCCESS_FEE: {
+        "name": "Удержание комиссии SuccessFee",
+        "category": "ServiceCommission"
+        },
+    operations_pb2.OPERATION_TYPE_DIVIDEND_TRANSFER: {
+        "name": "Передача дивидендного дохода",
+        "category": ""
+        },
+    operations_pb2.OPERATION_TYPE_ACCRUING_VARMARJIN: {
+        "name": "Зачисление вариационной маржи",
+        "category": ""
+        },
+    operations_pb2.OPERATION_TYPE_WRITING_OFF_VARMARJIN: {
+        "name": "Списание вариационной маржи",
+        "category": ""
+        },
+    operations_pb2.OPERATION_TYPE_DELIVERY_BUY: {
+        "name": "Покупка в рамках экспирации фьючерсного контракта",
+        "category": "Buy"
+        },
+    operations_pb2.OPERATION_TYPE_DELIVERY_SELL: {
+        "name": "Продажа в рамках экспирации фьючерсного контракта",
+        "category": "Sell"
+        },
+    operations_pb2.OPERATION_TYPE_TRACK_MFEE: {
+        "name": "Комиссия за управление по счёту автоследования",
+        "category": "Comission"
+        },
+    operations_pb2.OPERATION_TYPE_TRACK_PFEE: {
+        "name": "Комиссия за результат по счёту автоследования",
+        "category": "Comission"
+        },
+    operations_pb2.OPERATION_TYPE_TAX_PROGRESSIVE: {
+        "name": "Удержание налога по ставке 15%",
+        "category": "Tax"
+        },
+    operations_pb2.OPERATION_TYPE_BOND_TAX_PROGRESSIVE: {
+        "name": "Удержание налога по купонам по ставке 15%",
+        "category": "TaxCoupon"
+        },
+    operations_pb2.OPERATION_TYPE_DIVIDEND_TAX_PROGRESSIVE: {
+        "name": "Удержание налога по дивидендам по ставке 15%",
+        "category": "TaxDividend"
+        },
+    operations_pb2.OPERATION_TYPE_BENEFIT_TAX_PROGRESSIVE: {
+        "name": "Удержание налога за материальную выгоду по ставке 15%",
+        "category": "Tax"
+        },
+    operations_pb2.OPERATION_TYPE_TAX_CORRECTION_PROGRESSIVE: {
+        "name": "Корректировка налога по ставке 15%",
+        "category": "Tax"
+        },
+    operations_pb2.OPERATION_TYPE_TAX_REPO_PROGRESSIVE: {
+        "name": "Удержание налога за возмещение по сделкам РЕПО по ставке 15%",
+        "category": "Tax"
+        },
+    operations_pb2.OPERATION_TYPE_TAX_REPO: {
+        "name": "Удержание налога за возмещение по сделкам РЕПО",
+        "category": "Tax"
+        },
+    operations_pb2.OPERATION_TYPE_TAX_REPO_HOLD: {
+        "name": "Удержание налога по сделкам РЕПО",
+        "category": "Tax"
+        },
+    operations_pb2.OPERATION_TYPE_TAX_REPO_REFUND: {
+        "name": "Возврат налога по сделкам РЕПО",
+        "category": "Tax"
+        },
+    operations_pb2.OPERATION_TYPE_TAX_REPO_HOLD_PROGRESSIVE: {
+        "name": "Удержание налога по сделкам РЕПО по ставке 15%",
+        "category": "Tax"
+        },
+    operations_pb2.OPERATION_TYPE_TAX_REPO_REFUND_PROGRESSIVE: {
+        "name": "Возврат налога по сделкам РЕПО по ставке 15%",
+        "category": "Tax"
+        },
+    operations_pb2.OPERATION_TYPE_DIV_EXT: {
+        "name": "Выплата дивидендов на карту",
+        "category": "PayOut"
+        },
 }
 
-
-class OPERATION_TYPE(enum.Enum):
-    """    'Покупка ЦБ'
-        'Продажа ЦБ'
-
-    'Завод денежных средств'
-
-    'Удержание налога по дивидендам'
-    'Удержание комиссии за операцию'
-
-    'Выплата купонов'
-    'Выплата дивидендов'
-    'Частичное погашение облигаций'
-    'Полное погашение облигаций'
-    """
 
 OPERATION_STATES = {
     operations_pb2.OPERATION_STATE_UNSPECIFIED: "NA",

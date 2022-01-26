@@ -137,6 +137,7 @@ class PortfolioPosition:
 @dataclass
 class PortfolioOperation:
     op_type: str
+    op_category: str
     op_date: datetime
     op_currency: str
     op_payment: Decimal

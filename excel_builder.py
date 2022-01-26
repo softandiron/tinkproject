@@ -267,6 +267,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
             ["Валюта", 8],
             ["Сумма в руб", 15],
             ["Статус", 8],
+            ["Категория", 15],
         ]
         print_headers(worksheet_oplist, start_col, start_row, headers)
 
@@ -290,6 +291,7 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
                                    operation.op_payment_rub,
                                    cell_format['RUB'])
             worksheet_oplist.write(start_row, start_col+7, operation.op_status)
+            worksheet_oplist.write(start_row, start_col+8, operation.op_category)
 
     def print_statistics(s_row, s_col):
         # investing period

@@ -39,7 +39,7 @@ def calculate_ave_buy_price_rub(this_pos):
         rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
 
         if ops.figi == this_pos.figi and ops.payment.ammount != 0:
-            if ops.operation_type == 'Buy' or ops.operation_type == 'BuyCard':
+            if ops.category == 'Buy' or ops.category == 'BuyCard':
                 # Определим - был ли в истории сплит или обратный сплит
                 op_price = Decimal(ops.payment.ammount / ops.quantity_executed)
                 quantity = ops.quantity_executed
@@ -78,7 +78,7 @@ def calculate_ave_buy_price_rub(this_pos):
                     item_list += [item] * quantity
                 else:
                     logger.warning('unknown currency in position: ' + this_pos.name)
-            elif ops.operation_type == 'Sell':
+            elif ops.category == 'Sell':
                 # remove sold items from the list:
                 number = ops.quantity_executed
                 del item_list[:number]
@@ -86,7 +86,7 @@ def calculate_ave_buy_price_rub(this_pos):
         # solving problem with TCSG stocks:
         if this_pos.figi == 'BBG00QPYJ5H0':
             if ops.figi == 'BBG005DXJS36' and ops.payment != 0:
-                if ops.operation_type == 'Buy':
+                if ops.category == 'Buy':
                     if ops.currency == 'RUB':
                         # price for 1 item
                         item = ops.payment / ops.quantity_executed
@@ -94,7 +94,7 @@ def calculate_ave_buy_price_rub(this_pos):
                         item_list += [item] * ops.quantity_executed
                     else:
                         logger.warning('unknown currency in position: ' + this_pos.name)
-                elif ops.operation_type == 'Sell':
+                elif ops.category == 'Sell':
                     # remove sold items from the list:
                     number = ops.quantity_executed
                     del item_list[:number]
@@ -275,7 +275,7 @@ def calculate_iis_deduction():
 
     year_sums = {}
     for operation in my_operations:
-        if operation.op_type != 'PayIn':
+        if operation.op_type != 'Завод денежных средств':
             continue
         # По состоянию на 08.09.2021 пополнять ИИС можно только рублями,
         # Поэтому проверка формальная на случай - если вдруг это изменится
@@ -333,6 +333,7 @@ def create_operations_objects():
             payment_rub = 0
 
         my_operations.append(PortfolioOperation(this_op.type,
+                                                this_op.category,
                                                 this_op.date,
                                                 this_op.currency,
                                                 this_op.payment,
@@ -347,7 +348,7 @@ def create_operations_objects():
 def calculate_operations_sums_rub(current_op_type):
     op_list = []
     for op in my_operations:
-        if op.op_type == current_op_type and op.op_payment != 0:
+        if op.op_category == current_op_type and op.op_payment != 0:
             if op.op_currency in supported_currencies:
                 date = datetime.date(op.op_date)
                 rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
@@ -403,7 +404,7 @@ def calculate_xirr(operations, portfolio_value):
     logger.info('calculating XIRR..')
     dates_values = {}
     for op in operations:
-        if (op.op_type == 'PayIn' or op.op_type == 'PayOut') and op.op_payment != 0:
+        if op.op_category in ['PayIn', 'PayOut'] and op.op_payment != 0:
             if op.op_currency in supported_currencies:
                 date = datetime.date(op.op_date)
                 rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
