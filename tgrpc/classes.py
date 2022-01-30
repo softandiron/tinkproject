@@ -104,7 +104,7 @@ class MoneyAmmount():
 
     @staticmethod
     def fromMoneyAmmount(money_ammount):
-        currency = money_ammount.currency
+        currency = money_ammount.currency.upper()
         ammount = Price.fromQuotation(money_ammount).ammount
         return MoneyAmmount(currency, ammount)
 
@@ -228,7 +228,7 @@ class Currency():
     ammount: Decimal
 
     def __init__(self, money):
-        self.currency = money.currency
+        self.currency = money.currency.upper()
         self.ammount = Price.fromQuotation(money).ammount
 
     @property
@@ -251,7 +251,7 @@ class FutureMargin():
         initial_margin_on_sell = MoneyAmmount.fromMoneyAmmount(margins.initial_margin_on_sell)
         min_price_increment = Decimal(margins.min_price_increment)
         min_price_increment_amount = Price.fromQuotation(margins.min_price_increment_amount)
-        currency = initial_margin_on_buy.currency
+        currency = initial_margin_on_buy.currency.upper()
         return FutureMargin(initial_margin_on_buy.ammount,
                             initial_margin_on_sell.ammount,
                             min_price_increment,
@@ -281,7 +281,7 @@ class Instrument():
             instrument.lot,
             instrument.name,
             instrument_type,
-            instrument.currency,
+            instrument.currency.upper(),
             instrument.min_price_increment,
             isin
         )
@@ -327,7 +327,7 @@ class Operation():
     def from_api(operation):
         return Operation(
             operation.id,
-            operation.currency,
+            operation.currency.upper(),
             MoneyAmmount.fromMoneyAmmount(operation.payment),
             MoneyAmmount.fromMoneyAmmount(operation.price),
             operation.state,
