@@ -470,7 +470,7 @@ if __name__ == '__main__':
         # from data_parser
         positions, operations, market_rate_today, currencies = data_parser.get_api_data(account_id)
         today_date = datetime.date(config.now_date)
-        investing_period = data_parser.calc_investing_period()
+        investing_period = data_parser.calc_investing_period(account_id)
         investing_period_str = f'{investing_period.years}y {investing_period.months}m {investing_period.days}d'
         rates_today_cb = data_parser.get_exchange_rates_for_date_db(today_date)
 

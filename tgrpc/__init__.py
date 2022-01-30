@@ -115,8 +115,10 @@ class tgrpc_parser():
         accounts_stub = stub.GetAccounts(users_pb2.GetAccountsRequest())
         accounts_list = []
         for account in accounts_stub.accounts:
-            accounts_list.append(Account(account.id, account.name, account.opened_date,
-                                         account.closed_date, account.type, account.status))
+            opened_date = account.opened_date.ToDatetime()
+            closed_date = account.closed_date.ToDatetime()
+            accounts_list.append(Account(account.id, account.name, opened_date,
+                                         closed_date, account.type, account.status))
         return accounts_list
 
     @_debug_ids

@@ -54,8 +54,8 @@ def get_exchange_rate(date):
     return rate
 
 
-def calc_investing_period():
-    start_date = config.start_date.replace(tzinfo=None)
+def calc_investing_period(account_id):
+    start_date = config.get_account_opened_date(account_id)
     current_date = config.now_date
     inv_period = relativedelta(current_date, start_date)
     logger.info('investing period: ' + str(inv_period.years) + ' years ' + str(inv_period.months) + ' months '
@@ -78,7 +78,8 @@ def get_accounts():
 def get_api_data(broker_account_id):
     positions = tinkoff_access.get_portfolio(broker_account_id)
     operations = tinkoff_access.get_operations(broker_account_id,
-                                               config.start_date, config.now_date)
+                                               config.get_account_opened_date(broker_account_id),
+                                               config.now_date)
     market_rate_today = {}
     for currency, data in currencies_data.items():
         if 'figi' in data.keys():

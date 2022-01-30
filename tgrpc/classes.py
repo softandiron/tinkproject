@@ -65,8 +65,8 @@ class INSTRUMENT_ID_TYPE(enum.Enum):
 class Account:
     id: str
     name: str
-    opened_date: str
-    closed_date: str
+    opened_date: datetime
+    closed_date: datetime
     type: str
     status: str
 

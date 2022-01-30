@@ -71,6 +71,13 @@ class Config:
         for account in accounts:
             id = account.id
             name = account.name
+            opened_date = account.opened_date.strftime("%Y-%m-%d")
+            closed_date = account.closed_date
+            if not closed_date.year > 1970:
+                closed_date = None
+            else:
+                closed_date = closed_date.strftime("%Y-%m-%d")
+
             if id not in self.__config:
                 logger.info(f"New account found - {id} - {name} - adding config")
                 self.__config[id] = {
@@ -82,7 +89,9 @@ class Config:
                 'show empty operations': False,
                 'type': account.type,
                 'name': f'account-{name}',
-                'filename': f'tinkoffReport_%Y.%b.%d_{id}_{name}',
+                'filename': f'tinkoffReport_%Y.%m.%d_{id}_{name}',
+                'opened date': opened_date,
+                'closed date': closed_date,
             }
             # Check default values and set them as necessary
             for key, value in defaults.items():
@@ -95,14 +104,6 @@ class Config:
     @property
     def token(self):
         return self.__config['token']
-
-    @property
-    def start_date(self):
-        start_date = datetime(int(self.__config['start_year']),
-                              int(self.__config['start_month']),
-                              int(self.__config['start_day']),
-                              0, 0, 0, tzinfo=timezone(self.__config['timezone']))
-        return start_date
 
     @property
     def now_date(self):
@@ -196,7 +197,7 @@ class Config:
         """
         logger.debug(f"Get filename for account {account_id}")
         acc_name = self.get_account_name(account_id)
-        def_name = datetime.now().strftime(f"tinkoffReport_%Y.%b.%d_{account_id}")
+        def_name = datetime.now().strftime(f"tinkoffReport_%Y.%m.%d_{account_id}")
         logger.debug(def_name)
         if account_id not in self.__config.keys():
             logger.error(f"Нет настроек для аккаунта {acc_name} - {account_id}.")
@@ -241,6 +242,38 @@ class Config:
         status = self.parse_boolean(status)
         logger.debug(str(status) + " " + str(type(status)))
         return status
+
+    def get_account_opened_date(self, account_id):
+        """Возвращает надо ли показывать невыполненнные операции
+
+        Args:
+            account_id (int): номер брокерского счета для API
+
+        Returns:
+            [boolean]: True - если показывать.
+        """
+        logger.debug(f"Get opened_date for account {account_id}")
+        if account_id not in self.__config.keys():
+            logger.error(f"Нет настроек для аккаунта {account_id}.")
+            logger.error("Используем значение по умолчанию.")
+            return datetime(2010, 1, 1)
+        if 'opened date' not in self.__config[account_id].keys():
+            logger.error(f"Нет настроек видимости пустых операций для аккаунта {account_id}.")
+            logger.error("Используем значение по умолчанию.")
+            return datetime(2010, 1, 1)
+
+        opened_date_str = self.__config[str(account_id)]['opened date']
+        try:
+            opened_date = datetime.strptime(opened_date_str, "%Y-%m-%d")
+        except Exception as e:
+            name = self.get_account_name(account_id)
+            logger.error(e)
+            logger.warning(f"Неверный формат даты в настойках счета {name}.")
+            logger.warning(f"Требуется %Y-%m-%d (ГГГГ-ММ-ДД), есть: {opened_date_str}.")
+            logger.warning("Используем значение по умолчанию")
+            opened_date = datetime(2010, 1, 1)
+        logger.debug(f"Got opened date: {opened_date}")
+        return opened_date
 
     def get_debug_figis(self):
         if "debug_figis" in self.__config:
