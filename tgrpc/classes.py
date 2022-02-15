@@ -415,7 +415,7 @@ OPERATION_TYPES = {
         "name": "Завод ЦБ",
         "category": "PayIn"
         },
-    operations_pb2.OPERATION_TYPE_SELL_MARJIN: {
+    operations_pb2.OPERATION_TYPE_SELL_MARGIN: {
         "name": "Продажа в результате Margin-call",
         "category": "Sell"
         },
@@ -447,11 +447,11 @@ OPERATION_TYPES = {
         "name": "Передача дивидендного дохода",
         "category": ""
         },
-    operations_pb2.OPERATION_TYPE_ACCRUING_VARMARJIN: {
+    operations_pb2.OPERATION_TYPE_ACCRUING_VARMARGIN: {
         "name": "Зачисление вариационной маржи",
         "category": ""
         },
-    operations_pb2.OPERATION_TYPE_WRITING_OFF_VARMARJIN: {
+    operations_pb2.OPERATION_TYPE_WRITING_OFF_VARMARGIN: {
         "name": "Списание вариационной маржи",
         "category": ""
         },
@@ -561,9 +561,9 @@ class PortfolioPosition():
     def from_api(position):
         return PortfolioPosition(position.figi,
                                  position.instrument_type,
-                                 Decimal(position.quantity),
+                                 Price.fromQuotation(position.quantity).ammount,
                                  MoneyAmmount.fromMoneyAmmount(position.average_position_price),
                                  MoneyAmmount.fromMoneyAmmount(position.current_nkd),
-                                 Decimal(position.expected_yield),
+                                 Price.fromQuotation(position.expected_yield).ammount,
                                  Price.fromQuotation(position.average_position_price_pt).ammount
                                  )
