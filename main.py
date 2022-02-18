@@ -93,7 +93,7 @@ def calculate_ave_buy_price_rub(this_pos):
                         # add bought items to the list:
                         item_list += [item] * ops.quantity_executed
                     else:
-                        logger.warning('unknown currency in position: ' + this_pos.name)
+                        logger.warning(f'unknown currency "{ops.currency}" in position: {this_pos.figi}')
                 elif ops.category == 'Sell':
                     # remove sold items from the list:
                     number = ops.quantity_executed
