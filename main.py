@@ -77,7 +77,7 @@ def calculate_ave_buy_price_rub(this_pos):
                     # add bought items to the list:
                     item_list += [item] * quantity
                 else:
-                    logger.warning('unknown currency in position: ' + this_pos.name)
+                    logger.warning(f'Unknown currency "{ops.currency}" in position: {this_pos.figi}')
             elif ops.category == 'Sell':
                 # remove sold items from the list:
                 number = ops.quantity_executed
@@ -85,11 +85,11 @@ def calculate_ave_buy_price_rub(this_pos):
 
         # solving problem with TCSG stocks:
         if this_pos.figi == 'BBG00QPYJ5H0':
-            if ops.figi == 'BBG005DXJS36' and ops.payment != 0:
+            if ops.figi == 'BBG005DXJS36' and ops.payment.ammount != 0:
                 if ops.category == 'Buy':
                     if ops.currency == 'RUB':
                         # price for 1 item
-                        item = ops.payment / ops.quantity_executed
+                        item = ops.payment.ammount / ops.quantity_executed
                         # add bought items to the list:
                         item_list += [item] * ops.quantity_executed
                     else:
