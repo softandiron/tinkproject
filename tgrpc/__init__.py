@@ -30,6 +30,8 @@ import tgrpc.service as service
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
+from typing import List, Union, Callable, Any, TypeVar
+
 logger = logging.getLogger("tgrpc")
 
 RATE_LIMIT_TIMEOUT = 5  # seconds
@@ -110,7 +112,7 @@ class tgrpc_parser():
         return wrapper
 
     @_catch_grpc_error
-    def get_accounts_list(self):
+    def get_accounts_list(self) -> List[Account]:
         stub = users_pb2_grpc.UsersServiceStub(self.get_channel())
         accounts_stub = stub.GetAccounts(users_pb2.GetAccountsRequest())
         accounts_list = []
@@ -123,7 +125,11 @@ class tgrpc_parser():
 
     @_debug_ids
     @_catch_grpc_error
-    def get_candles_raw(self, figi, start_date, end_date, interval=CANDLE_INTERVALS.DAY):
+    def get_candles_raw(self, 
+                        figi:str,
+                        start_date:datetime,
+                        end_date:datetime,
+                        interval:CANDLE_INTERVALS = CANDLE_INTERVALS.DAY):
         """Возвращает сырые данные о свечах из API
 
         Args:
@@ -192,7 +198,7 @@ class tgrpc_parser():
         return candles_out
 
     @_debug_ids
-    def get_currencies(self, account_id):
+    def get_currencies(self, account_id:str) -> List[Currency]:
         money = self.get_positions(account_id).money
         currencies = []
         for currency in money:
@@ -211,10 +217,10 @@ class tgrpc_parser():
 
     @_debug_ids
     @_catch_grpc_error
-    def get_instrument_raw(self, id,
-                           id_type=INSTRUMENT_ID_TYPE.Figi,
-                           instrument_type=None,
-                           class_code=None):
+    def get_instrument_raw(self, id:str,
+                           id_type:INSTRUMENT_ID_TYPE=INSTRUMENT_ID_TYPE.Figi,
+                           instrument_type:Union[str, None]=None,
+                           class_code:Union[str, None]=None):
         """Запрос инструмента по Тикеру/IsIn/Figi
         Возвращает "сырые" данные из API
 
@@ -257,9 +263,9 @@ class tgrpc_parser():
         return result.instrument
 
     @_debug_ids
-    def get_instrument(self, id,
-                       id_type=INSTRUMENT_ID_TYPE.Figi,
-                       instrument_type=None,
+    def get_instrument(self, id:str,
+                       id_type:INSTRUMENT_ID_TYPE=INSTRUMENT_ID_TYPE.Figi,
+                       instrument_type:Union[str,None]=None,
                        class_code=None):
         """Запрос инструмента по Тикеру/IsIn/Figi
 
@@ -330,9 +336,12 @@ class tgrpc_parser():
 
     @_debug_ids
     @_catch_grpc_error
-    def get_operations(self, account_id,
-                       start_date=datetime(2020, 11, 1, 0, 0),
-                       end_date=datetime.now(tz=timezone.utc), state="", figi=None):
+    def get_operations(self, account_id:str,
+                       start_date:datetime=datetime(2020, 11, 1, 0, 0),
+                       end_date:datetime=datetime.now(tz=timezone.utc),
+                       state="",
+                       figi:Union[str, None]=None):
+        # TODO: реализовать фильтр по статусу операции
         stub = operations_pb2_grpc.OperationsServiceStub(self.get_channel())
 
         start_ts = Timestamp()
@@ -357,14 +366,14 @@ class tgrpc_parser():
 
     @_debug_ids
     @_catch_grpc_error
-    def get_positions(self, account_id):
+    def get_positions(self, account_id:str):
         stub = operations_pb2_grpc.OperationsServiceStub(self.get_channel())
         positions_stub = stub.GetPositions(operations_pb2.PositionsRequest(account_id=account_id))
         return positions_stub
 
     @_debug_ids
     @_catch_grpc_error
-    def get_portfolio(self, account_id):
+    def get_portfolio(self, account_id:str):
         stub = operations_pb2_grpc.OperationsServiceStub(self.get_channel())
         portfolio_stub = stub.GetPortfolio(operations_pb2.PortfolioRequest(account_id=account_id))
         # print(portfolio_stub.positions)

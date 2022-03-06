@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
+from typing import Dict, Union
+
 import enum
 import logging
 
@@ -67,7 +69,7 @@ class Account:
     name: str
     opened_date: datetime
     closed_date: datetime
-    type: str
+    type: int
     status: str
 
     @property
@@ -243,7 +245,7 @@ class FutureMargin():
     initial_margin_on_sell: Decimal  # Гарантийное обеспечение при продаже.
     min_price_increment: Decimal  # Шаг цены.
     min_price_increment_amount: Decimal  # Стоимость шага цены.
-    currency: str = None
+    currency: Union[str,None] = None
 
     @staticmethod
     def from_api(margins):
@@ -296,7 +298,7 @@ class Operation():
     currency: str
     payment: MoneyAmmount
     price: MoneyAmmount
-    state: str
+    state: int
     quantity: int
     figi: str
     instrument_type: str
@@ -304,7 +306,7 @@ class Operation():
     type: str  # Название из API
     type_code: int  # Код из API
     quantity_rest: int = 0
-    parent_operation_id: str = None
+    parent_operation_id: Union[str,None] = None
 
     @property
     def category(self):
@@ -537,7 +539,7 @@ class PortfolioPosition():
     average_position_price: MoneyAmmount  # Средняя цена покупки
     current_nkd: Decimal
     expected_yield: Decimal  # Накопленная ожидаемая прибыль - НКД в ней?
-    average_position_price_pt: Decimal = None  # Для фьючерсов
+    average_position_price_pt: Union[Decimal,None] = None  # Для фьючерсов
 
     # name: str
     # average_position_price: Optional[MoneyAmount] = Field(alias='averagePositionPrice')
@@ -563,7 +565,7 @@ class PortfolioPosition():
                                  position.instrument_type,
                                  Price.fromQuotation(position.quantity).ammount,
                                  MoneyAmmount.fromMoneyAmmount(position.average_position_price),
-                                 MoneyAmmount.fromMoneyAmmount(position.current_nkd),
+                                 MoneyAmmount.fromMoneyAmmount(position.current_nkd).ammount,
                                  Price.fromQuotation(position.expected_yield).ammount,
                                  Price.fromQuotation(position.average_position_price_pt).ammount
                                  )
