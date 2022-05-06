@@ -18,23 +18,26 @@
 
 План работ можно отследить тут: [Проект - Переход на Tinkoff API 2 ](https://github.com/softandiron/tinkproject/projects/2).
 
-**Ждем Вам!**
+**Ждем Вас!**
 
 ## К старой версии...
 
 The program for portfolio analysis via Tinkoff API
 
-Hello! This is my first project, please, don't judge me. This project was developed for Tinkoff Investments' clients, like me, to gather accurate and full information about portfolio into Excel table.
+This project was developed for clients of Tinkoff Investments to gather accurate data about portfolio and represent full statistics as an Excel table report.
 
-Здравствуйте! Это мой первый проект, пожалуйста не судите строго. Этот проект был разработан для клиентов Тинькофф Инвестиций, чтобы собирать подробную информацию об инвестиционном портфеле в таблицу Excel.
+Этот проект был разработан для клиентов Тинькофф Инвестиций, чтобы собирать подробный отчёт об инвестиционном портфеле на основе точных данных из API, которые сложно получить через официальный сайт и мобильное приложение.
+Готовый отчёт представляется в виде таблицы Excel.
 
 Статья на Хабре: [Что недоговаривают Тинькофф Инвестиции. Вытаскиваем все данные по портфелю через API в большую таблицу Excel](https://habr.com/en/post/555884/)
+
+Вторая статья на Хабре: [Продолжаем ковырять Тинькофф API. Рассчитываем эффективность инвестиций](https://habr.com/ru/post/572358/)
 
 Для автоматического сбора информации используется Tinkoff API. Для использования вам нужно получить *токен для OpenAPI* в личном кабинете Тинькофф.
 
 ## Параметры доступа
 
-Далее вам нужно СОЗДАТЬ файл `my_account.txt` со следующим содержимым построчно:
+После получения токена вам нужно СОЗДАТЬ файл `my_account.txt` со следующим содержимым построчно:
 
 ```text
 Ваш Токен для OpenAPI

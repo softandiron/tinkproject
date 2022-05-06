@@ -76,7 +76,7 @@ class Config:
                 'parse': True,
                 'show empty operations': False,
                 'name': f'account-{id}',
-                'filename': f'tinkoffReport_%Y.%b.%d_{id}',
+                'filename': f'tinkoffReport_%Y-%m-%d_{id}',
             }
             # Check default values and set them as necessary
             for key, value in defaults.items():
@@ -190,7 +190,7 @@ class Config:
         """
         logger.debug(f"Get filename for account {account_id}")
         acc_name = self.get_account_name(account_id)
-        def_name = datetime.now().strftime(f"tinkoffReport_%Y.%b.%d_{account_id}")
+        def_name = datetime.now().strftime(f"tinkoffReport_%Y-%m-%d_{account_id}")
         logger.debug(def_name)
         if account_id not in self.__config.keys():
             logger.error(f"Нет настроек для аккаунта {acc_name} - {account_id}.")

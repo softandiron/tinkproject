@@ -2,7 +2,6 @@
 
 import logging
 import xlsxwriter
-import data_parser
 
 import currencies
 
@@ -32,7 +31,8 @@ def build_excel_file(account, my_positions, my_operations, rates_today_cb, marke
     logger.info('creating excel file..')
     excel_file_name = config.get_account_filename(account.broker_account_id)
     excel_file_name = str(excel_file_name) + '.xlsx'
-    workbook = xlsxwriter.Workbook(excel_file_name)
+
+    workbook = xlsxwriter.Workbook('Reports/' + excel_file_name)
     workbook.set_size(1440, 1024)  # set default window size
     worksheet_port = workbook.add_worksheet("Portfolio")
     worksheet_ops = workbook.add_worksheet("Operations")
