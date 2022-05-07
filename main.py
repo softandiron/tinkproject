@@ -20,7 +20,7 @@ import excel_builder
 from excel_builder import build_excel_file, supported_currencies, assets_types
 
 
-def get_portfolio_cash_rub():
+def get_portfolio_cash_rub(currencies):
     for cur in currencies.payload.currencies:
         if cur.currency == 'RUB':
             return cur.balance
@@ -28,7 +28,7 @@ def get_portfolio_cash_rub():
 
 
 # tax calculation
-def calculate_ave_buy_price_rub(this_pos):
+def calculate_ave_buy_price_rub(this_pos, operations):
     item_list = []
     # for this position's figi - add units into the list from operations
     for ops in reversed(operations.payload.operations):
@@ -104,7 +104,7 @@ def calculate_ave_buy_price_rub(this_pos):
     return abs(ave_buy_price_rub)
 
 
-def creating_positions_objects():
+def creating_positions_objects(positions, operations, market_rate_today, today_date):
     logger.info('creating position objects..')
 
     number_positions = len(positions.payload.positions)
@@ -126,7 +126,7 @@ def creating_positions_objects():
                                                        market_rate, cb_rate)
 
         if this_pos.average_position_price.value > 0:
-            ave_buy_price_rub = calculate_ave_buy_price_rub(this_pos)
+            ave_buy_price_rub = calculate_ave_buy_price_rub(this_pos, operations)
             logger.info(this_pos.name)
         else:  # in the case, if this position has ZERO purchase price
             ave_buy_price_rub = Decimal(0)
@@ -141,7 +141,7 @@ def creating_positions_objects():
     return my_positions
 
 
-def get_average_percent():
+def get_average_percent(my_positions, market_rate_today):
     sum_buy_list, yield_list = [], []
     for this_pos in my_positions:
         if this_pos.currency in supported_currencies:
@@ -154,7 +154,7 @@ def get_average_percent():
     return 0
 
 
-def get_portfolio_cost_rub_market():
+def get_portfolio_cost_rub_market(my_positions, market_rate_today, cash_rub):
     costs_list = []
     for this_pos in my_positions:
         if this_pos.currency in supported_currencies:
@@ -164,15 +164,15 @@ def get_portfolio_cost_rub_market():
     return sum(costs_list) + cash_rub
 
 
-def calculate_cb_value_rub_sum():
+def calculate_cb_value_rub_sum(my_positions, cash_rub):
     return sum(pos.market_cost_rub_cb for pos in my_positions) + cash_rub
 
 
-def calculate_sum_pos_ave_buy_rub():
+def calculate_sum_pos_ave_buy_rub(my_positions):
     return sum(pos.sum_buy_rub for pos in my_positions)
 
 
-def calculate_profit_sum():
+def calculate_profit_sum(my_positions):
     list = []
     for pos in my_positions:
         if pos.tax_base > 0:
@@ -180,15 +180,15 @@ def calculate_profit_sum():
     return sum(list)
 
 
-def calculate_profit_tax():
+def calculate_profit_tax(sum_profile):
     return round(sum_profile['profit'] * Decimal(tax_rate / 100), 2)
 
 
-def calculate_loss_tax():
+def calculate_loss_tax(sum_profile):
     return round(sum_profile['loss'] * Decimal(tax_rate / 100), 2)
 
 
-def calculate_loss_sum():
+def calculate_loss_sum(my_positions):
     list = []
     for pos in my_positions:
         if pos.tax_base < 0:
@@ -196,11 +196,11 @@ def calculate_loss_sum():
     return sum(list)
 
 
-def calculate_sum_exp_tax():
+def calculate_sum_exp_tax(my_positions):
     return Decimal(max(0, sum(pos.exp_tax for pos in my_positions)))
 
 
-def calculate_parts():
+def calculate_parts(my_positions, cash_rub):
     logger.info('calculating parts')
     parts = {'totalValue': cash_rub,
              'RUB': {
@@ -252,7 +252,7 @@ def calculate_parts():
     return parts
 
 
-def calculate_iis_deduction():
+def calculate_iis_deduction(my_operations, sum_profile):
     """Расчет вычета по счетам ИИС
 
     Returns:
@@ -307,7 +307,7 @@ def calculate_iis_deduction():
     return year_sums
 
 
-def create_operations_objects():
+def create_operations_objects(operations):
     logger.info('creating operations objects..')
     my_operations = list()
     for this_op in operations.payload.operations:
@@ -338,7 +338,7 @@ def create_operations_objects():
     return my_operations
 
 
-def calculate_operations_sums_rub(current_op_type):
+def calculate_operations_sums_rub(my_operations, current_op_type):
     op_list = []
     for op in my_operations:
         if op.op_type == current_op_type and op.op_payment != 0:
@@ -426,6 +426,61 @@ def calculate_xirr(operations, portfolio_value):
     return x
 
 
+def create_account_report(account):
+    logger.info(account)
+    account_id = account.broker_account_id
+    parse_account = config.get_account_parse_status(account_id)
+    if not parse_account:
+        account_name = config.get_account_name(account_id)
+        logger.warning(f"Account {account_id} ({account_name}) - parsing is OFF")
+        return
+    # from data_parser
+    positions, operations, market_rate_today, currencies = data_parser.get_api_data(account_id)
+    today_date = datetime.date(config.now_date)
+    investing_period = data_parser.calc_investing_period()
+    investing_period_str = f'{investing_period.years}y {investing_period.months}m {investing_period.days}d'
+    rates_today_cb = data_parser.get_exchange_rates_for_date_db(today_date)
+
+    # from main
+    cash_rub = get_portfolio_cash_rub(currencies)
+    my_positions = creating_positions_objects(positions, operations, market_rate_today, today_date)
+    average_percent = get_average_percent(my_positions, market_rate_today)
+    portfolio_cost_rub_market = get_portfolio_cost_rub_market(my_positions, market_rate_today, cash_rub)
+
+    sum_profile = {}
+    sum_profile['broker_account_type'] = account.broker_account_type.value
+    sum_profile['portfolio_value_rub_cb'] = calculate_cb_value_rub_sum(my_positions, cash_rub)
+    sum_profile['pos_ave_buy_rub'] = calculate_sum_pos_ave_buy_rub(my_positions)
+    sum_profile['exp_tax'] = calculate_sum_exp_tax(my_positions)
+    sum_profile['profit'] = calculate_profit_sum(my_positions)
+    sum_profile['loss'] = calculate_loss_sum(my_positions)
+    sum_profile['profit_tax'] = calculate_profit_tax(sum_profile)
+    sum_profile['loss_tax'] = calculate_loss_tax(sum_profile)
+    sum_profile['parts'] = calculate_parts(my_positions, cash_rub)
+
+    my_operations = create_operations_objects(operations)
+
+    sum_profile['iis_deduction'] = calculate_iis_deduction(my_operations, sum_profile)
+
+    xirr_value = calculate_xirr(my_operations, (portfolio_cost_rub_market - sum_profile['exp_tax']))
+
+    for operation in ['PayIn', 'PayOut', 'Buy', 'BuyCard', 'Sell', 'Coupon', 'Dividend',
+                        'Tax', 'TaxCoupon', 'TaxDividend',
+                        'BrokerCommission', 'ServiceCommission']:
+        logger.info(f'calculating {operation} operations sum in RUB..')
+        sum_profile[operation.lower()] = calculate_operations_sums_rub(my_operations, operation)
+
+    logger.info('preparing statistics')
+
+    # PayIn - PayOut
+    payin_payout = sum_profile['payin'] - abs(sum_profile['payout'])
+
+    # EXCEL
+    build_excel_file(account, my_positions, my_operations, rates_today_cb, market_rate_today,
+                        average_percent, portfolio_cost_rub_market, sum_profile,
+                        investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate)
+
+
 if __name__ == '__main__':
 
     logging_level = logging.INFO
@@ -450,57 +505,6 @@ if __name__ == '__main__':
     # get accounts
     accounts = data_parser.get_accounts()
     for account in accounts:
-        logger.info(account)
-        account_id = account.broker_account_id
-        parse_account = config.get_account_parse_status(account_id)
-        if not parse_account:
-            account_name = config.get_account_name(account_id)
-            logger.warning(f"Account {account_id} ({account_name}) - parsing is OFF")
-            continue
-        # from data_parser
-        positions, operations, market_rate_today, currencies = data_parser.get_api_data(account_id)
-        today_date = datetime.date(config.now_date)
-        investing_period = data_parser.calc_investing_period()
-        investing_period_str = f'{investing_period.years}y {investing_period.months}m {investing_period.days}d'
-        rates_today_cb = data_parser.get_exchange_rates_for_date_db(today_date)
-
-        # from main
-        cash_rub = get_portfolio_cash_rub()
-        my_positions = creating_positions_objects()
-        average_percent = get_average_percent()
-        portfolio_cost_rub_market = get_portfolio_cost_rub_market()
-
-        sum_profile = {}
-        sum_profile['broker_account_type'] = account.broker_account_type.value
-        sum_profile['portfolio_value_rub_cb'] = calculate_cb_value_rub_sum()
-        sum_profile['pos_ave_buy_rub'] = calculate_sum_pos_ave_buy_rub()
-        sum_profile['exp_tax'] = calculate_sum_exp_tax()
-        sum_profile['profit'] = calculate_profit_sum()
-        sum_profile['loss'] = calculate_loss_sum()
-        sum_profile['profit_tax'] = calculate_profit_tax()
-        sum_profile['loss_tax'] = calculate_loss_tax()
-        sum_profile['parts'] = calculate_parts()
-
-        my_operations = create_operations_objects()
-
-        sum_profile['iis_deduction'] = calculate_iis_deduction()
-
-        xirr_value = calculate_xirr(my_operations, (portfolio_cost_rub_market - sum_profile['exp_tax']))
-
-        for operation in ['PayIn', 'PayOut', 'Buy', 'BuyCard', 'Sell', 'Coupon', 'Dividend',
-                          'Tax', 'TaxCoupon', 'TaxDividend',
-                          'BrokerCommission', 'ServiceCommission']:
-            logger.info(f'calculating {operation} operations sum in RUB..')
-            sum_profile[operation.lower()] = calculate_operations_sums_rub(operation)
-
-        logger.info('preparing statistics')
-
-        # PayIn - PayOut
-        payin_payout = sum_profile['payin'] - abs(sum_profile['payout'])
-
-        # EXCEL
-        build_excel_file(account, my_positions, my_operations, rates_today_cb, market_rate_today,
-                         average_percent, portfolio_cost_rub_market, sum_profile,
-                         investing_period_str, cash_rub, payin_payout, xirr_value, tax_rate)
+        create_account_report(account)
 
     logger.info(f'done in {time.time() - start_time:.2f} seconds')
