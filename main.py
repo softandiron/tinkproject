@@ -1,7 +1,10 @@
 # TinkProject
-# developed by.. sorry, I should stay anonymous for my security.
-# my nickname: softandiron
-# Moscow 2021
+# GitHub: https://github.com/softandiron/tinkproject
+# Habr_1: https://habr.com/en/post/555884
+# Habr_2: https://habr.com/ru/post/572358
+# main.py - агрегатор, производящий все необходимые расчёты для подготовки отчёта
+# Данные для расчётов поставляются из data_parser.py
+# Выходные данные используются в excel_builder.py
 
 import logging
 import sys
@@ -21,6 +24,10 @@ from excel_builder import build_excel_file, supported_currencies, assets_types
 
 
 def get_portfolio_cash_rub():
+    """
+    Находит, сколько рублей в портфеле кэшем
+    Returns: cur.balance
+    """
     for cur in currencies.payload.currencies:
         if cur.currency == 'RUB':
             return cur.balance
@@ -29,6 +36,15 @@ def get_portfolio_cash_rub():
 
 # tax calculation
 def calculate_ave_buy_price_rub(this_pos):
+    """
+    Рассчитывает среднюю цену покупки бумаги в рублях.
+    Нужно для последующего расчёта налогов.
+    Args:
+        this_pos: принимает figi бумаги
+
+    Returns: возвращает среднюю цену покупки бумаги
+
+    """
     item_list = []
     # for this position's figi - add units into the list from operations
     for ops in reversed(operations.payload.operations):
@@ -105,6 +121,11 @@ def calculate_ave_buy_price_rub(this_pos):
 
 
 def creating_positions_objects():
+    """
+    Создаёт объекты класса PortfolioPosition для каждой бумаги в портфеле
+    Returns: список типа list с объектами, именуемый my_positions
+
+    """
     logger.info('creating position objects..')
 
     number_positions = len(positions.payload.positions)
@@ -142,6 +163,11 @@ def creating_positions_objects():
 
 
 def get_average_percent():
+    """
+    Рассчитывает общий процент изменения по всем открытым позициям, как в приложении Тинькофф
+    Returns: средний процент по открытым позициям
+
+    """
     sum_buy_list, yield_list = [], []
     for this_pos in my_positions:
         if this_pos.currency in supported_currencies:
@@ -155,6 +181,11 @@ def get_average_percent():
 
 
 def get_portfolio_cost_rub_market():
+    """
+    Считает стоимость всего портфеля в рублях по текущему РЫНОЧНОМУ курсу
+    Returns: стоимость портфеля + свободные рубли на счёте
+
+    """
     costs_list = []
     for this_pos in my_positions:
         if this_pos.currency in supported_currencies:
@@ -165,14 +196,27 @@ def get_portfolio_cost_rub_market():
 
 
 def calculate_cb_value_rub_sum():
+    """
+    Считает стоимость всего портфеля в рублях по курсу ЦБ на сегодня.
+    Returns: стоимость всего портфеля в рублях + свободные рубли на счёте
+
+    """
     return sum(pos.market_cost_rub_cb for pos in my_positions) + cash_rub
 
 
 def calculate_sum_pos_ave_buy_rub():
+    """
+    Returns: Сумма стоимости покупки в рублях всех бумаг в портфеле
+
+    """
     return sum(pos.sum_buy_rub for pos in my_positions)
 
 
 def calculate_profit_sum():
+    """
+    Считает сумму налогооблагаемой базы всех позиций
+
+    """
     list = []
     for pos in my_positions:
         if pos.tax_base > 0:
@@ -181,14 +225,26 @@ def calculate_profit_sum():
 
 
 def calculate_profit_tax():
+    """
+    Считает предполагаемый налог с прибыли в случае закрытия прибыльной позиции.
+    ВАЖНО: не учитывает налог по ранее закрытым позициям
+    """
     return round(sum_profile['profit'] * Decimal(tax_rate / 100), 2)
 
 
 def calculate_loss_tax():
+    """
+    Считает предполагаемый налоговый вычет в случае закрытия убыточной позиции.
+    ВАЖНО: не учитывает налог по ранее закрытым позициям
+    """
+
     return round(sum_profile['loss'] * Decimal(tax_rate / 100), 2)
 
 
 def calculate_loss_sum():
+    """
+    Суммирует "налоговый вычет" по убыточным позициям
+    """
     list = []
     for pos in my_positions:
         if pos.tax_base < 0:
@@ -197,6 +253,9 @@ def calculate_loss_sum():
 
 
 def calculate_sum_exp_tax():
+    """
+    Суммирует ожидаемый налог по всему портфелю
+    """
     return Decimal(max(0, sum(pos.exp_tax for pos in my_positions)))
 
 
@@ -308,6 +367,10 @@ def calculate_iis_deduction():
 
 
 def create_operations_objects():
+    """
+    Создаёт объекты класса PortfolioOperation
+    Returns: список list с объектами операций именуемый my_operations
+    """
     logger.info('creating operations objects..')
     my_operations = list()
     for this_op in operations.payload.operations:
@@ -339,11 +402,20 @@ def create_operations_objects():
 
 
 def calculate_operations_sums_rub(current_op_type):
+    """
+    Для каждого типа операций рассчитывается сумма все не нулевых операций
+    Args:
+        current_op_type: тип операции
+
+    Returns: сумма в рублях
+
+    """
     op_list = []
     for op in my_operations:
         if op.op_type == current_op_type and op.op_payment != 0:
             if op.op_currency in supported_currencies:
-                date = datetime.date(op.op_date)  # op_date has a datetime.datetime type. I don't know, what is a problem.
+                date = datetime.date(op.op_date)  # op_date has a datetime.datetime type.
+                                                  # I don't know, what is the problem.
                 rate_for_date = data_parser.get_exchange_rates_for_date_db(date)
                 op_list.append(op.op_payment * rate_for_date[op.op_currency])
             else:
@@ -394,6 +466,15 @@ def xirr(valuesPerDate):
 
 
 def calculate_xirr(operations, portfolio_value):
+    """
+    Функция расчёта реальной эффективности инвестиций по формуле XIRR
+    Args:
+        operations: список операций, нужен для учёта всех пополнений и списаний
+        portfolio_value: стоимость портфеля на конец периода
+
+    Returns: значение XIRR в процентах
+
+    """
     logger.info('calculating XIRR..')
     dates_values = {}
     for op in operations:
